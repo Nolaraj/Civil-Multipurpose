@@ -1,0 +1,37 @@
+<LoginScreen>:
+    name: 'login'
+
+    MDBoxLayout:
+        orientation: 'vertical'
+        spacing: dp(20)
+        padding: dp(40)
+        MDLabel:
+            text: "Civil Estimation Login"
+            halign: 'center'
+            font_style: 'H4'
+            size_hint_y: None
+            height: self.texture_size[1]
+
+        MDTextField:
+            id: username
+            hint_text: "Username"
+            required: True
+            icon_right: "account"
+
+        MDTextField:
+            id: password
+            hint_text: "Password"
+            password: True
+            required: True
+            icon_right: "key"
+
+        MDRaisedButton:
+            text: "Login"
+            pos_hint: {"center_x": 0.5}
+            on_release: app.login(username.text, password.text)
+
+        MDLabel:
+            id: login_status
+            text: ""
+            halign: "center"
+            theme_text_color: "Error"
