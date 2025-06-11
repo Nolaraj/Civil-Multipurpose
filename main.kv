@@ -1,0 +1,329 @@
+#:import MDLabel kivymd.uix.label.MDLabel
+#:import MDRectangleFlatButton kivymd.uix.button.MDRectangleFlatButton
+#:import MDBoxLayout kivymd.uix.boxlayout.MDBoxLayout
+#:import Factory kivy.factory.Factory
+
+<EstimationPart@MDBoxLayout>:
+    item_number: 1  # This will be set when creating the section
+    orientation: "vertical"
+    spacing: dp(10)
+    adaptive_height: True
+    size_hint_y: None
+    padding: dp(10)
+    md_bg_color: app.theme_cls.bg_normal
+
+    canvas.before:
+        Color:
+            rgba: 0, 0, 0, 0.1
+        Line:
+            width: 1
+            rectangle: self.x, self.y, self.width, self.height
+
+    MDLabel:
+        text: f"Estimation Section {root.item_number}"
+        halign: "center"
+        theme_text_color: "Primary"
+        size_hint_y: None
+        height: self.texture_size[1]
+
+
+
+    #____________________________________________________________________________________________________________
+
+
+    MDBoxLayout:
+        id: main_content
+        orientation: "vertical"
+        spacing: dp(20)
+        padding: dp(20)
+        adaptive_height: True
+        size_hint_y: None
+        MDBoxLayout:
+            orientation: "horizontal"
+            spacing: dp(10)
+            adaptive_height: True
+            size_hint_y: None
+            height: self.minimum_height
+            pos_hint: {"top": 1}
+
+            MDTextField:
+                id: item_description
+                hint_text: "Item Description"
+                mode: "rectangle"
+
+            MDTextField:
+                id: quantity
+                hint_text: "Quantity"
+                mode: "rectangle"
+                input_filter: "float"
+
+            MDTextField:
+                id: unit
+                hint_text: "Unit"
+                mode: "rectangle"
+
+            MDTextField:
+                id: rate
+                hint_text: "Rate"
+                mode: "rectangle"
+                input_filter: "float"
+
+        MDBoxLayout:
+            orientation: "horizontal"
+            spacing: dp(10)
+            adaptive_height: True
+            size_hint_y: None
+            height: self.minimum_height
+            pos_hint: {"top": 1}
+
+            MDTextField:
+                id: item_description
+                hint_text: "Item Description"
+                mode: "rectangle"
+
+            MDTextField:
+                id: quantity
+                hint_text: "Quantity"
+                mode: "rectangle"
+                input_filter: "float"
+
+            MDTextField:
+                id: unit
+                hint_text: "Unit"
+                mode: "rectangle"
+
+            MDTextField:
+                id: rate
+                hint_text: "Rate"
+                mode: "rectangle"
+                input_filter: "float"
+
+
+
+
+<MainScreen>:
+    id: main_screen
+
+    ScreenManager:
+        id: screen_manager
+
+        Screen:
+            name: "main_screen"
+
+            BoxLayout:
+                orientation: "vertical"
+
+                MDTopAppBar:
+                    title: "Civil Multipurpose Estimation Software"
+                    elevation: 4
+                    left_action_items: [["menu", lambda x: nav_drawer.set_state("open")]]
+
+                BoxLayout:
+                    id: content_area
+                    orientation: "vertical"
+                    padding: dp(10)
+                    spacing: dp(10)
+
+                    MDLabel:
+                        id: default_label
+                        text: "Welcome to the Main Screen"
+                        halign: "center"
+
+        Screen:
+            name: "estimation_screen"
+            id: estimation_screen
+
+            BoxLayout:
+                orientation: "vertical"
+
+                MDTopAppBar:
+                    title: "Quantity Estimation"
+                    left_action_items: [["arrow-left", lambda x: setattr(root.ids.screen_manager, "current", "main_screen")]]
+                    right_action_items: [["file-import", lambda x: app.import_excel()], ["file-export", lambda x: app.export_excel()]]
+                    elevation: 4
+
+                ScrollView:
+                    id: scroll_view  # <-- Add this line
+
+                    do_scroll_x: False
+                    do_scroll_y: True
+                    MDBoxLayout:
+                        id: main_content
+                        orientation: "vertical"
+                        spacing: dp(20)
+                        padding: dp(20)
+                        adaptive_height: True
+                        size_hint_y: None
+
+                        MDBoxLayout:
+                            orientation: "horizontal"
+                            spacing: dp(10)
+                            adaptive_height: True
+                            size_hint_y: None
+                            height: self.minimum_height
+                            pos_hint: {"top": 1}
+
+                            MDBoxLayout:
+                                orientation: "vertical"
+                                spacing: dp(10)
+                                adaptive_height: True
+                                size_hint_y: None
+                                height: self.minimum_height
+                                pos_hint: {"top": 1}
+
+                                MDLabel:
+                                    text: "Client's Details"
+                                    halign: "center"
+                                    theme_text_color: "Primary"
+                                    size_hint_y: None
+                                    height: self.texture_size[1]
+
+                                MDTextField:
+                                    hint_text: "Nepal / Provincial / Local Government"
+                                    mode: "rectangle"
+
+                                MDTextField:
+                                    hint_text: "Ministry / Department / Office"
+                                    mode: "rectangle"
+
+                                MDTextField:
+                                    hint_text: "Office code"
+                                    input_filter: "int"
+                                    mode: "rectangle"
+
+                            MDSeparator:
+                                orientation: "vertical"
+                                height: self.parent.height
+                                size_hint_x: None
+                                width: dp(1.5)
+
+                            MDBoxLayout:
+                                orientation: "vertical"
+                                spacing: dp(10)
+                                adaptive_height: True
+                                size_hint_y: None
+                                height: self.minimum_height
+
+                                MDLabel:
+                                    text: "Project Details"
+                                    halign: "center"
+                                    theme_text_color: "Primary"
+                                    size_hint_y: None
+                                    height: self.texture_size[1]
+
+                                MDTextField:
+                                    hint_text: "Project name"
+                                    mode: "rectangle"
+
+                                MDTextField:
+                                    hint_text: "Project location"
+                                    mode: "rectangle"
+
+                                MDTextField:
+                                    hint_text: "Expected completion time"
+                                    mode: "rectangle"
+
+                                MDTextField:
+                                    hint_text: "Fiscal year"
+                                    mode: "rectangle"
+
+                                MDTextField:
+                                    hint_text: "Budget subheading no"
+                                    mode: "rectangle"
+
+                                MDRectangleFlatButton:
+                                    text: "Start Estimation"
+                                    pos_hint: {"center_x": 0.5}
+
+                        MDSeparator:
+                        MDBoxLayout:
+                            orientation: "vertical"
+                            spacing: dp(20)
+                            adaptive_height: True
+                            size_hint_y: None
+
+                            MDBoxLayout:
+                                id: dynamic_sections_container
+                                orientation: "vertical"
+                                spacing: dp(20)
+                                adaptive_height: True
+                                size_hint_y: None
+
+                            MDBoxLayout:
+                                size_hint_y: None
+                                height: dp(60)
+                                padding: [0, 10, 0, 10]
+                                MDIconButton:
+                                    icon: "plus"
+                                    pos_hint: {"center_x": 0.5}
+                                    on_release:
+                                        new_section = Factory.EstimationPart()
+                                        dynamic_sections_container.add_widget(new_section)
+                                        scroll_view.scroll_to(new_section)
+
+
+    MDNavigationDrawer:
+        id: nav_drawer
+
+        BoxLayout:
+            orientation: "vertical"
+            padding: "8dp"
+            spacing: "8dp"
+
+            MDLabel:
+                text: "Menu"
+                font_style: "H5"
+                size_hint_y: None
+                height: self.texture_size[1]
+
+            ScrollView:
+                MDList:
+                    OneLineIconListItem:
+                        text: "Import (.xlsx)"
+                        on_press:
+                            root.ids.content_area.clear_widgets()
+                            root.ids.content_area.add_widget(import_box)
+                            nav_drawer.set_state("close")
+                        IconLeftWidget:
+                            icon: "file-import"
+
+                    OneLineIconListItem:
+                        text: "Export (.xlsx)"
+                        on_press:
+                            root.ids.content_area.clear_widgets()
+                            root.ids.content_area.add_widget(MDLabel(text="Exporting to Excel...", halign="center"))
+                            nav_drawer.set_state("close")
+                        IconLeftWidget:
+                            icon: "file-export"
+
+                    OneLineIconListItem:
+                        text: "Export (.docx)"
+                        on_press:
+                            root.ids.content_area.clear_widgets()
+                            root.ids.content_area.add_widget(MDLabel(text="Exporting to Word Document...", halign="center"))
+                            nav_drawer.set_state("close")
+                        IconLeftWidget:
+                            icon: "file-word"
+
+                    OneLineIconListItem:
+                        text: "Quantity Estimation"
+                        on_press:
+                            root.ids.screen_manager.current = "estimation_screen"
+                            nav_drawer.set_state("close")
+                        IconLeftWidget:
+                            icon: "ruler-square"
+
+                    OneLineIconListItem:
+                        text: "Completion Report"
+                        on_press:
+                            root.ids.content_area.clear_widgets()
+                            root.ids.content_area.add_widget(MDLabel(text="Completion Report Section", halign="center"))
+                            nav_drawer.set_state("close")
+                        IconLeftWidget:
+                            icon: "file-document-outline"
+
+                    OneLineIconListItem:
+                        text: "Exit"
+                        on_press: app.stop()
+                        IconLeftWidget:
+                            icon: "exit-to-app"
