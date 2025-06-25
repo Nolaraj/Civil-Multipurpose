@@ -42,8 +42,15 @@ from kivy.uix.button import Button
 import pandas as pd
 import os
 from kivy.factory import Factory
+from kivy.properties import BooleanProperty
+from kivy.core.text import LabelBase
+import InputData as ID
 
-# ScreenManager to handle transitions between multiple screens
+# import Excel_Mapping as EM
+# IntegratedData = EM.DataMapped()
+# print(IntegratedData)
+
+
 class LoginScreen(Screen):
     pass
 class MainScreen(Screen):
@@ -62,6 +69,18 @@ class CompletionScreen(Screen):
     pass
 
 class CivilEstimationApp(MDApp):
+    LabelBase.register(name='NepaliFont', fn_regular='fonts/Kalimati Regular.otf')
+    LabelBase.register(name='MultiLangFont', fn_regular='fonts/NotoSansDevanagari.ttf')
+    search_triggered = BooleanProperty(False)  # <-- ✅ ADD THIS LINE at the top-level (not inside any method)
+    SearchPool = {}
+    SearchResults = ListProperty([])  # For KV binding
+    SearchPool = ListProperty([
+        "Title: Cement plaster on brick wall",
+        "Item: 1:4 Cement Mortar",
+        "Labour: Skilled mason 8 hrs",
+        "Materials: Sand (fine)",
+        "Fuel: Diesel - 1.2 L/hr"
+    ])
     def build(self):
         # Set up the ScreenManager and load screens
         # sm = ScreenManager()
@@ -70,9 +89,13 @@ class CivilEstimationApp(MDApp):
         self.title = "Civil Multipurpose Estimation Software"
         self.theme_cls.theme_style = "Light"
         self.theme_cls.primary_palette = "Blue"
+        # make sure your screens or .kv files are loaded after this
+        self.theme_cls.primary_palette = "Blue"
+        self.theme_cls.theme_style = "Light"
 
         # Load KV components and screens
         self.load_kv_files()
+
 
         sm = ScreenManager()
         sm.add_widget(LoginScreen(name='login'))
@@ -80,6 +103,8 @@ class CivilEstimationApp(MDApp):
         sm.add_widget(EstimationScreen(name="estimation_screen"))
 
         return sm
+
+
 
     def login(self, username, password):
         # Your login logic goes here
@@ -109,7 +134,6 @@ class CivilEstimationApp(MDApp):
         # Load component KV files
         Builder.load_file("components/rv.kv")
         Builder.load_file("components/dialogs.kv")
-
 
 
     def show_export_menu(self):
@@ -206,7 +230,6 @@ class CivilEstimationApp(MDApp):
         save_btn.bind(on_release=save_file)
         cancel_btn.bind(on_release=lambda x: popup.dismiss())
         popup.open()
-
 
 if __name__ == "__main__":
     Window.minimum_width, Window.minimum_height = (800, 600)
