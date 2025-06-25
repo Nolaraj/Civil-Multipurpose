@@ -2,9 +2,252 @@
 #:import MDRectangleFlatButton kivymd.uix.button.MDRectangleFlatButton
 #:import MDBoxLayout kivymd.uix.boxlayout.MDBoxLayout
 #:import Factory kivy.factory.Factory
+#:import MDIconButton kivymd.uix.button.MDIconButton
+#:import MDLabel kivymd.uix.label.MDLabel
+#:import MDBoxLayout kivymd.uix.boxlayout.MDBoxLayout
+
+
+<SearchItem@MDBoxLayout>:
+    orientation: "horizontal"
+    size_hint_y: None
+    height: dp(48)
+    spacing: dp(8)
+    padding: dp(5)
+    text: ""
+    md_bg_color: 1, 1, 1, 0.04
+
+    MDLabel:
+        text: root.text
+        halign: "left"
+        theme_text_color: "Primary"
+        size_hint_x: 0.55
+
+    MDIconButton:
+        icon: "check"
+        tooltip_text: "Apply"
+        on_release: print("Apply", root.text)
+
+    MDIconButton:
+        icon: "pencil"
+        tooltip_text: "Edit"
+        on_release: print("Edit", root.text)
+
+    MDIconButton:
+        icon: "eye"
+        tooltip_text: "View"
+        on_release: print("View", root.text)
+
+    MDIconButton:
+        icon: "marker"
+        tooltip_text: "Highlight"
+        on_release: print("Highlight", root.text)
+
+
+<Search_Results@MDBoxLayout>:
+    orientation: "vertical"
+    adaptive_height: True
+    size_hint_y: None
+    padding: dp(8)
+    spacing: dp(12)
+    md_bg_color: app.theme_cls.bg_normal
+
+    MDLabel:
+        text: "Search Results"
+        halign: "center"
+        theme_text_color: "Primary"
+        size_hint_y: None
+        height: self.texture_size[1]
+
+
+    RecycleView:
+        id: search_rv
+        viewclass: "SearchItem"
+        bar_width: dp(4)
+        scroll_type: ['bars', 'content']
+        size_hint_y: None
+        height: dp(150)
+
+        RecycleBoxLayout:
+            orientation: "vertical"
+            default_size: None, dp(48)
+            default_size_hint: 1, None
+            size_hint_y: None
+            height: self.minimum_height
+            spacing: dp(5)
+
+
+
+<ItemQuantity_Details@MDBoxLayout>:
+    item_number: 1
+    orientation: "vertical"
+    adaptive_height: True
+    size_hint_y: None
+    padding: dp(8)
+    spacing: dp(12)  # Increased spacing between major blocks
+    md_bg_color: app.theme_cls.bg_normal
+
+    MDLabel:
+        text: f"Item number {root.item_number}"
+        halign: "center"
+        theme_text_color: "Primary"
+        size_hint_y: None
+        height: self.texture_size[1]
+
+    MDBoxLayout:
+        id: item_rate
+        orientation: "vertical"
+        adaptive_height: True
+        size_hint_y: None
+        spacing: dp(10)
+        height: self.minimum_height
+
+
+        # === Spinner Row ===
+        MDBoxLayout:
+            orientation: "horizontal"
+            spacing: dp(10)
+            size_hint_y: None
+            height: dp(48)  # Unified height for all children
+
+            MDRectangleFlatButton:
+                text: "Add standard rate"
+                pos_hint: {"center_x": 0.5}
+
+            MDRectangleFlatButton:
+                text: "Link to Norms' Rate"
+                pos_hint: {"center_x": 0.5}
+
+            Spinner:
+                id: dropdown
+                text: "Select item"
+                values: ["Title", "Item", "Labour", "Materials", "Fuel"]
+                size_hint_x: 0.3
+                size_hint_y: None
+                height: dp(48)
+                background_color: 0, 0, 0, 0  # Fully transparent
+                color: app.theme_cls.primary_color
+                canvas.before:
+                    Color:
+                        rgba: 0, 0.447, 0.741, 1  # Blue border
+                    Line:
+                        width: 1.2
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 4)
+
+            MDTextField:
+                id: search_keyword_input
+                hint_text: "Keyword"
+                font_name: "MultiLangFont"  # <- apply your font here
+                size_hint_x: 0.5
+                size_hint_y: None
+                height: dp(48)
+                mode: "rectangle"
+
+            MDFlatButton:
+                text: "Search"
+                on_release:
+                    app.SearchResults = [x for x in app.SearchPool if search_keyword_input.text.lower() in x.lower()]
+                    dynamic_searchResults_container.clear_widgets()
+                    dynamic_searchResults_container.add_widget(Factory.Search_Results())
+                    dynamic_searchResults_container.children[0].ids.search_rv.data = [{"text": x} for x in app.SearchResults]
+
+
+        # === Search Results (Dynamic container) ===
+        MDBoxLayout:
+            id: dynamic_searchResults_container
+            orientation: "vertical"
+            spacing: dp(20)
+            adaptive_height: True
+            size_hint_y: None
+
+
+        # === Quantity Estimation per Item ===
+        MDBoxLayout:
+            orientation: "horizontal"
+            spacing: dp(10)
+            size_hint_y: None
+            height: dp(48)  # Unified height for all children
+
+
+
+            MDTextField:
+                id: item_number
+                #text: f'{self.root.item_number}'
+                readonly: True  # prevents editing
+                input_filter: "float"
+
+                hint_text: "S.N."
+                mode: "rectangle"
+                size_hint_x: 0.12
+                height: dp(30)
+
+
+            MDTextField:
+                id: item_description
+                hint_text: "Description"
+                mode: "rectangle"
+                size_hint_x: 0.18
+                height: dp(48)
+
+
+            MDTextField:
+                id: unit
+                hint_text: "Unit"
+                mode: "rectangle"
+                size_hint_x: 0.08
+                height: dp(48)
+
+            MDTextField:
+                id: rate
+                hint_text: "Rate"
+                mode: "rectangle"
+                input_filter: "float"
+                size_hint_x: 0.1
+                height: dp(48)
+
+            MDTextField:
+                id: numbers
+                hint_text: "Numbers"
+                mode: "rectangle"
+                input_filter: "float"
+                size_hint_x: 0.1
+                height: dp(48)
+
+            MDTextField:
+                id: length
+                hint_text: "Length"
+                mode: "rectangle"
+                input_filter: "float"
+                size_hint_x: 0.1
+                height: dp(48)
+
+            MDTextField:
+                id: breadth
+                hint_text: "Breadth"
+                mode: "rectangle"
+                input_filter: "float"
+                size_hint_x: 0.1
+                height: dp(48)
+
+            MDTextField:
+                id: height
+                hint_text: "Height"
+                mode: "rectangle"
+                input_filter: "float"
+                size_hint_x: 0.1
+                height: dp(48)
+
+            MDTextField:
+                id: quantity
+                hint_text: "Quantity"
+                mode: "rectangle"
+                input_filter: "float"
+                size_hint_x: 0.12
+                height: dp(48)
+
+
 
 <EstimationPart@MDBoxLayout>:
-    item_number: 1  # This will be set when creating the section
+    section_number: 1  # This will be set when creating the section
     orientation: "vertical"
     spacing: dp(10)
     adaptive_height: True
@@ -20,83 +263,57 @@
             rectangle: self.x, self.y, self.width, self.height
 
     MDLabel:
-        text: f"Estimation Section {root.item_number}"
+        text: f"Estimation Section {root.section_number}"
         halign: "center"
         theme_text_color: "Primary"
         size_hint_y: None
         height: self.texture_size[1]
+
+    MDBoxLayout:
+        orientation: "vertical"
+        spacing: dp(20)
+        adaptive_height: True
+        size_hint_y: None
+        MDBoxLayout:
+            id: dynamic_item_container
+            orientation: "vertical"
+            spacing: dp(20)
+            adaptive_height: True
+            size_hint_y: None
+        MDBoxLayout:
+            size_hint_y: None
+            height: dp(60)
+            padding: [0, 10, 0, 10]
+            MDFlatButton:
+                on_release:
+                    new_item = Factory.ItemQuantity_Details()
+                    setattr(new_item, "item_number", len(dynamic_item_container.children) + 1)
+
+                    dynamic_item_container.add_widget(new_item)
+
+                MDBoxLayout:
+                    orientation: "horizontal"
+                    spacing: dp(5)
+                    size_hint_x: None
+                    width: self.minimum_width
+                    MDIcon:
+                        icon: "plus"
+                        size_hint_x: None
+                        width: self.texture_size[0]
+                    MDLabel:
+                        text: "              Add new item"
+                        theme_text_color: "Primary"
+                        size_hint_x: None
+                        text_size: None, None
 
 
 
     #____________________________________________________________________________________________________________
 
 
-    MDBoxLayout:
-        id: main_content
-        orientation: "vertical"
-        spacing: dp(20)
-        padding: dp(20)
-        adaptive_height: True
-        size_hint_y: None
-        MDBoxLayout:
-            orientation: "horizontal"
-            spacing: dp(10)
-            adaptive_height: True
-            size_hint_y: None
-            height: self.minimum_height
-            pos_hint: {"top": 1}
 
-            MDTextField:
-                id: item_description
-                hint_text: "Item Description"
-                mode: "rectangle"
 
-            MDTextField:
-                id: quantity
-                hint_text: "Quantity"
-                mode: "rectangle"
-                input_filter: "float"
 
-            MDTextField:
-                id: unit
-                hint_text: "Unit"
-                mode: "rectangle"
-
-            MDTextField:
-                id: rate
-                hint_text: "Rate"
-                mode: "rectangle"
-                input_filter: "float"
-
-        MDBoxLayout:
-            orientation: "horizontal"
-            spacing: dp(10)
-            adaptive_height: True
-            size_hint_y: None
-            height: self.minimum_height
-            pos_hint: {"top": 1}
-
-            MDTextField:
-                id: item_description
-                hint_text: "Item Description"
-                mode: "rectangle"
-
-            MDTextField:
-                id: quantity
-                hint_text: "Quantity"
-                mode: "rectangle"
-                input_filter: "float"
-
-            MDTextField:
-                id: unit
-                hint_text: "Unit"
-                mode: "rectangle"
-
-            MDTextField:
-                id: rate
-                hint_text: "Rate"
-                mode: "rectangle"
-                input_filter: "float"
 
 
 
@@ -253,13 +470,32 @@
                                 size_hint_y: None
                                 height: dp(60)
                                 padding: [0, 10, 0, 10]
-                                MDIconButton:
-                                    icon: "plus"
-                                    pos_hint: {"center_x": 0.5}
+
+                                MDFlatButton:
                                     on_release:
                                         new_section = Factory.EstimationPart()
+                                        setattr(new_section, "section_number", len(dynamic_sections_container.children) + 1)
                                         dynamic_sections_container.add_widget(new_section)
                                         scroll_view.scroll_to(new_section)
+
+                                    MDBoxLayout:
+                                        orientation: "horizontal"
+                                        spacing: dp(5)
+                                        size_hint_x: None
+                                        width: self.minimum_width
+
+                                        MDIcon:
+                                            icon: "plus"
+                                            size_hint_x: None
+                                            width: self.texture_size[0]
+
+                                        MDLabel:
+                                            text: "              Add new section"
+                                            theme_text_color: "Primary"
+                                            size_hint_x: None
+                                            text_size: None, None
+
+
 
 
     MDNavigationDrawer:
