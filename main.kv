@@ -6,7 +6,6 @@
 #:import MDLabel kivymd.uix.label.MDLabel
 #:import MDBoxLayout kivymd.uix.boxlayout.MDBoxLayout
 
-
 <SearchItem@MDBoxLayout>:
     orientation: "horizontal"
     size_hint_y: None
@@ -21,6 +20,7 @@
         halign: "left"
         theme_text_color: "Primary"
         size_hint_x: 0.55
+        font_name: "MultiLangFont"
 
     MDIconButton:
         icon: "check"
@@ -30,7 +30,7 @@
     MDIconButton:
         icon: "pencil"
         tooltip_text: "Edit"
-        on_release: print("Edit", root.text)
+        on_release: app.show_edit_dialog(root.text)  # This is the critical line
 
     MDIconButton:
         icon: "eye"
@@ -41,7 +41,6 @@
         icon: "marker"
         tooltip_text: "Highlight"
         on_release: print("Highlight", root.text)
-
 
 <Search_Results@MDBoxLayout>:
     orientation: "vertical"
@@ -120,7 +119,7 @@
             Spinner:
                 id: dropdown
                 text: "Select item"
-                values: ["Title", "Item", "Labour", "Materials", "Fuel"]
+                values: ["Title", "Resources", "Labour", "Materials", "Machines"]
                 size_hint_x: 0.3
                 size_hint_y: None
                 height: dp(48)
@@ -145,7 +144,9 @@
             MDFlatButton:
                 text: "Search"
                 on_release:
-                    app.SearchResults = [x for x in app.SearchPool if search_keyword_input.text.lower() in x.lower()]
+                    selected_category = dropdown.text
+                    search_text = search_keyword_input.text
+                    app.SearchResults = app.search_mapped_data(selected_category, search_text)
                     dynamic_searchResults_container.clear_widgets()
                     dynamic_searchResults_container.add_widget(Factory.Search_Results())
                     dynamic_searchResults_container.children[0].ids.search_rv.data = [{"text": x} for x in app.SearchResults]
