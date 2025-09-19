@@ -182,6 +182,7 @@
             id: estimation_screen
             BoxLayout:
                 orientation: "vertical"
+                #name: "estimation_screen"
 
                 MDTopAppBar:
                     id: top_appbar
@@ -550,6 +551,8 @@
             adaptive_height: True
             height: self.minimum_height
 
+
+
         ContentBoxH:        #Entry for the dimensions and rates
             adaptive_height: True
             height: self.minimum_height
@@ -580,7 +583,9 @@
 
             ContentField:
                 id: rate
+                name: "item_rate"
                 input_filter: "float"
+                font_size: "12sp"
                 size_hint_x: 0.12
                 on_text: root.calculate_quantity()
                 MDTextFieldHintText:
@@ -751,6 +756,7 @@
 
         Label:
             id: search_textOnly
+            name: "search_textOnly"
             text: root.text
             font_name: "NotoSansDevanagari"
             font_size: "13sp"

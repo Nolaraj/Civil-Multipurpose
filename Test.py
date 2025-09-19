@@ -72,7 +72,30 @@ objects_cache = {
 }
 
 
+def find_values_by_key(data, target_key):
+    """
+    Recursively find all values for a given key in a nested dict/list structure.
 
+    Parameters:
+        data (dict or list): The nested data.
+        target_key (str): The key to search for.
+
+    Returns:
+        list: All values corresponding to the target key.
+    """
+    results = []
+
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if key == target_key:
+                results.append(value)
+            else:
+                results.extend(find_values_by_key(value, target_key))
+    elif isinstance(data, list):
+        for item in data:
+            results.extend(find_values_by_key(item, target_key))
+
+    return results
 
 # Global cache for all dynamically created estimation GUI objects
 class LoginScreen(Screen):
@@ -271,6 +294,19 @@ class SearchItem(BoxLayout):
         dynamic_searchResults_container_Obj_Props = inspector.get_widget_properties(dynamic_searchResults_container_Obj)
         item_number = dynamic_searchResults_container_Obj_Props["item_no"]
         return item_number
+    def rate_objectFinder(self, search_item):
+        inspector = GUIInspector(root_widget=app.root)
+        dynamic_searchResults_container_Obj = inspector.find_nearestparent_with_parent_(search_item, "item_no"  )
+        dynamic_searchResults_container_Obj_Props = inspector.get_widget_properties(dynamic_searchResults_container_Obj)
+        dynamic_searchResults_container_Obj_Parent = dynamic_searchResults_container_Obj_Props["parent"]
+        rate_objectFinder = inspector.find_parent_with_child_(dynamic_searchResults_container_Obj_Parent, "name", "item_rate")
+
+        return rate_objectFinder
+    def search_textOnlyFinder(self, search_item):
+        inspector = GUIInspector(root_widget=app.root)
+        dynamic_searchResults_container_Obj = inspector.find_nearestparent_with_parent_(search_item, "item_no")
+        search_textOnlyObj = inspector.find_parent_with_child_(dynamic_searchResults_container_Obj, "name", "search_textOnly")
+        return search_textOnlyObj
 
     def ApplyRateAnalysis(self, search_item , fromViewedandApplied = [False, {}]):
         """
@@ -313,19 +349,45 @@ class SearchItem(BoxLayout):
         app.toast(f'Selected text {rv.data[0]["text"]}')
 
         #Call for database handling
+
+        applied_text = search_item.text  # text from SearchItem
+        appliedDataTitlePresentation = applied_text.split("_")
+        NormsDBRef = int(appliedDataTitlePresentation[0])
+        original_unitRate = app.MappedData[NormsDBRef]["Second Inner table"]["Unit Rate"]
+        search_textOnlyObj = self.search_textOnlyFinder(search_item)
+
         if fromViewedandApplied[0]:
             self.sendAppRateTo_DB(item_number, fromViewedandApplied[1])
+
+            # Apply the rate to the quantity estimation database rate section
+            rate_Obj = self.rate_objectFinder(search_item)
+            rate_Obj.text = "{:.2f}".format(find_values_by_key(fromViewedandApplied[1], "Unit Rate")[0][0])
+
+
+
+            rateDeviation = abs(original_unitRate[0] - float(fromViewedandApplied[1]["Second Inner table"]["Unit Rate"][0]))
+            if rateDeviation > 1:
+                search_textOnlyObj.color = "#FF69B4" #(225, 22, 122, 1)
+            else:
+                search_textOnlyObj.color = app.theme_cls.primaryColor
+
         else:
-            applied_text = search_item.text  # text from SearchItem
-            appliedDataTitlePresentation = applied_text.split("_")
-            NormsDBRef = int(appliedDataTitlePresentation[0])
             appliedRateData = app.MappedData[NormsDBRef]
             appliedRateData["NormsDBRef"] = NormsDBRef
             self.sendAppRateTo_DB(item_number, appliedRateData)
 
+            # Apply the rate to the quantity estimation database rate section
+            rate_Obj = self.rate_objectFinder(search_item)
+            rate_Obj.text = "{:.2f}".format(find_values_by_key(appliedRateData, "Unit Rate")[0][0])
+            search_textOnlyObj.color = app.theme_cls.primaryColor
+
+        self.sendGenInfoQEst_toDB(objects_cache)
 
     def sendAppRateTo_DB(self,item_number,  appliedRateData):
         app.gui_DB.save_appliedRateAnalysis(item_number, appliedRateData)
+
+    def sendGenInfoQEst_toDB(self, objects_cache):
+        app.gui_DB.save_GenInfo_QEstimation(ObjectsCache=objects_cache)
 
 
 
@@ -514,9 +576,8 @@ class SearchItem(BoxLayout):
         content_layout.add_widget(scroll)
 
         # --- Buttons ---
-        print(widget_refs["Second Inner table"]["Unit Rate"][0].text, "sfsdfsf")
+        rateDeviation = abs(original_unitRate[0] - float(widget_refs["Second Inner table"]["Unit Rate"][0].text))
 
-        tolerance = abs(original_unitRate[0] - float(widget_refs["Second Inner table"]["Unit Rate"][0].text))
         ConfirmationLabel = MDLabel(
                 text=f"Original unit rate {original_unitRate[0]}",
                 font_name="MultiLangFont",
@@ -529,7 +590,7 @@ class SearchItem(BoxLayout):
                 halign= "right",
                 size_hint_x = 0.7,
             )
-        if tolerance>1:
+        if rateDeviation>1:
             ConfirmationLabel.text_color = (1,0, 0, 1)
 
         content_layout.add_widget(ConfirmationLabel)
@@ -564,6 +625,7 @@ class SearchItem(BoxLayout):
                     for k, v in widget_refs["Second Inner table"].items()
                 }
             }
+
 
             # Save back to DB
             # print("Afterwareds data", new_data)
@@ -1407,6 +1469,7 @@ class CivilEstimationApp(MDApp):
         "quantity_factor",
         "Item_cost"
     ]
+    GenInfo_IDs = ["office", "projectname", "budgetsubheadingno", "fiscalyear", "projectcompletiontime", "projectlocation", "officeCode"]
 
 
 
@@ -1433,14 +1496,18 @@ class CivilEstimationApp(MDApp):
 
 
     def cache_forNewSection(self):
-        pass
+        inspector = GUIInspector(root_widget=app.root)
+        # estimation_screen = inspector.get_widget_by_id("estimation_screen")
+        itemsObjects = {}
+
+        for items in self.GenInfo_IDs:
+            itemsObjects[items] = inspector.get_widget_by_id(items)
+
+        objects_cache["Estimation_Data"]["General_Information"] = itemsObjects
+
+
         # objects_cache["Estimation_Data"]["Estimation_Sections"].append([])  #Innermost list is the estsec1, est sec2...
     def cache_forNewItem(self):
-
-        # objects_cache["Estimation_Data"]["Estimation_Sections"][-1].append([]) #Innermost list is the item1, item2...
-        # listofInterest =  objects_cache["Estimation_Data"]["Estimation_Sections"][-1][-1]
-
-
         inspector = GUIInspector(root_widget=app.root)
 
         #Itew Number is set as key for all
