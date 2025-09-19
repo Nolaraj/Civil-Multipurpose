@@ -1,0 +1,1052 @@
+#:import Factory kivy.factory.Factory
+#:import MDLabel kivymd.uix.label.MDLabel
+##:import MDBoxLayout kivymd.uix.boxlayout.MDBoxLayout
+#:import Factory kivy.factory.Factory
+#:import MDIconButton kivymd.uix.button.MDIconButton
+#:import MDLabel kivymd.uix.label.MDLabel
+#:import MDBoxLayout kivymd.uix.boxlayout.MDBoxLayout
+#:import MDTextFieldLeadingIcon kivymd.uix.textfield.textfield
+##:import MDOneLineIconListItem kivymd.uix.list.MDOneLineIconListItem
+
+
+<SearchItem@MDBoxLayout>:
+    orientation: "horizontal"
+    size_hint_y: None
+    #height: dp(48)
+    spacing: dp(8)
+    padding: dp(5)
+    text: ""
+    is_highlighted: False
+    index: 0
+
+    canvas.before:
+        Color:
+            rgba: (1, 1, 0, 0.3) if root.is_highlighted else (1, 1, 1, 0.04)
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    MDLabel:
+        id: text_label
+        text: root.text
+        halign: "left"
+        theme_text_color: "Primary" if not root.is_highlighted else "Custom"
+        text_color: (1, 0, 0, 1) if root.is_highlighted else (1, 1, 1, 1)
+        size_hint_x: 0.55
+        font_name: "MultiLangFont"
+        bold: root.is_highlighted
+
+    MDIconButton:
+        icon: "check"
+        tooltip_text: "Apply"
+        on_release:
+            # Get the RecycleView instance
+            rv = self.parent.parent.parent.parent.ids.search_rv
+
+            # Unhighlight all items
+            for item in rv.data: item['is_highlighted'] = False
+
+            # Highlight current item if index is valid
+            if len(rv.data) > root.index:                rv.data[root.index]['is_highlighted'] = True
+
+            # Filter to show only highlighted item while maintaining data structure
+            if len(rv.data) > 1:                rv.data = [dict(item) for item in rv.data if item.get('is_highlighted', False)] or rv.data[:1]
+
+            # Adjust height - must use proper KV syntax
+            rv.height = dp(50) if len(rv.data) == 1 else min(dp(400), len(rv.data) * dp(48))
+
+            # Refresh the view
+            rv.refresh_from_data()
+
+
+
+
+
+    MDIconButton:
+        icon: "pencil"
+        tooltip_text: "Edit"
+        on_release: app.show_edit_dialog(root.text)
+
+    MDIconButton:
+        icon: "eye"
+        tooltip_text: "View"
+        on_release: print("View", root.text)
+
+    MDIconButton:
+        icon: "marker"
+        tooltip_text: "Highlight"
+        on_release:
+            # Get the RecycleView instance
+            rv = self.parent.parent.parent.parent.ids.search_rv
+            # Unhighlight all items
+            for item in rv.data: item['is_highlighted'] = False
+            # Highlight current item
+            if len(rv.data) > root.index:                rv.data[root.index]['is_highlighted'] = True
+            # Refresh the view
+            rv.refresh_from_data()
+
+
+<Search_Results@MDBoxLayout>:
+    orientation: "vertical"
+    adaptive_height: True
+    size_hint_y: None
+    #padding: dp(8)
+    #spacing: dp(12)
+    md_bg_color: app.theme_cls.bg_normal
+
+    MDLabel:
+        text: "Search Results"
+        halign: "center"
+        theme_text_color: "Primary"
+        #size_hint_y: None
+        #height: self.texture_size[1]
+
+    RecycleView:
+        id: search_rv
+        viewclass: "SearchItem"
+        bar_width: dp(4)
+        bar_color: app.theme_cls.primary_color
+        scroll_type: ['bars', 'content']
+        size_hint_y: None
+        height: min(        dp(200),         max(            dp(144),             len(self.data) * dp(48)          )    )
+        effect_cls: "ScrollEffect"
+
+        RecycleBoxLayout:
+            orientation: "vertical"
+            default_size: None, dp(48)
+            default_size_hint: 1, None
+            size_hint_y: None
+            height: self.minimum_height
+            spacing: dp(5)
+            padding: dp(5)
+
+
+
+
+<ItemQuantity_Details@MDBoxLayout>:
+    item_number: 1
+    orientation: "vertical"
+    adaptive_height: True
+    size_hint_y: None
+    size_hint_y:0.5
+    md_bg_color: app.theme_cls.bg_normal
+    height: self.minimum_height if root.is_expanded else dp(0)
+    spacing: dp(0)
+    #padding: dp(10)
+
+    MDTextField:
+        id: item_number_label
+        text: f"Item {root.item_number}"
+        font_name: "Roboto-Bold"
+        font_size: "14sp"
+        halign: "left"
+        size_hint_y: None
+        height: dp(15)
+        multiline: False
+        theme_text_color: "Custom"
+        text_color_normal: "green"
+        readonly: True  # Starts as readonly
+
+        # Click to edit behavior
+        on_touch_down:
+            if self.collide_point(*args[1].pos) and self.readonly: \
+            self.readonly = False; \
+            self.focus = True
+
+        # Finish editing on enter or focus loss
+        on_text_validate: self.readonly = True
+        on_focus: if not self.focus: self.readonly = True
+
+
+
+    MDBoxLayout:
+        id: item_rate
+        orientation: "vertical"
+        adaptive_height: True
+        size_hint_y: None
+        spacing: dp(0)
+        #height: self.minimum_height
+
+        MDBoxLayout:
+            orientation: "horizontal"
+            spacing: dp(10)
+            size_hint_y: None
+            #height: dp(10)
+
+            MDRectangleFlatButton:
+                text: "Add standard rate"
+                height: dp(15)
+                font_size: "12sp"
+
+            MDRectangleFlatButton:
+                text: "Link to Norms' Rate"
+                height: dp(15)
+                font_size: "12sp"
+
+            Spinner:
+                id: dropdown
+                text: "Select item"
+                values: ["Title", "Resources", "Labour", "Materials", "Machines"]
+                size_hint_x: 0.3
+                size_hint_y: None
+                height: dp(35)
+                font_size: "12sp"
+                background_color: 0, 0, 0, 0
+                color: app.theme_cls.primary_color
+                canvas.before:
+                    Color:
+                        rgba: 0, 0.0, 0.0, 1
+                    Line:
+                        width: 1.2
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 4)
+
+            MDTextField:
+                id: search_keyword_input
+                hint_text: "Keyword"
+                text:" "
+                font_name: "MultiLangFont"
+                size_hint_y: None
+                font_size: "12sp"
+                multiline: True
+                height: self.minimum_height
+                theme_text_color: "Custom"
+                text_color_normal: "black"
+                on_focus: if self.focus and self.text == "-": self.text = "";  self.font_size = "12sp"
+
+
+            MDButton:
+                on_release:
+                    selected_category = dropdown.text
+                    search_text = search_keyword_input.text
+                    app.SearchResults = app.search_mapped_data(selected_category, search_text)
+                    dynamic_searchResults_container.clear_widgets()
+                    dynamic_searchResults_container.add_widget(Factory.Search_Results())
+                    dynamic_searchResults_container.children[0].ids.search_rv.data = [{"text": x, "is_highlighted": False, "index": i} for i, x in enumerate(app.SearchResults)]
+
+                MDBoxLayout:
+                    orientation: "horizontal"
+                    spacing: dp(5)
+                    size_hint_x: None
+                    width: self.minimum_width
+                    MDIcon:
+                        icon: "magnify"
+                        size_hint_x: None
+                        width: self.texture_size[0]
+
+
+
+        MDBoxLayout:
+            id: dynamic_searchResults_container
+            orientation: "vertical"
+            spacing: dp(0)
+            adaptive_height: True
+            #size_hint_y: None
+
+
+
+        MDBoxLayout:
+            orientation: "horizontal"
+            spacing: dp(2)
+            size_hint_y: None
+            adaptive_height: True
+
+            #height: dp(25)
+
+            MDTextField:
+                id: item_number
+                hint_text: "SN"
+                text: str(root.index + 1)  # Shows 1-based numbering
+                input_filter: "float"
+                readonly: True
+                size_hint_x: 0.05
+                font_name: "Roboto-Italic" if self.text == "Write description" else "Roboto"
+                text_color: rgba(0, 0, 0, 0.5) if self.text == "Write description" else rgba(0, 0, 0, 1)
+                multiline: True
+                font_size: "12sp"
+                height: self.minimum_height
+                theme_text_color: "Custom"
+                text_color_normal: "black"
+                padding: [dp(0), dp(0), dp(0), dp(0)]
+                halign: "left"
+                on_focus: if self.focus and self.text == "Write description": self.text = ""; self.font_name = "Roboto"; self.text_color = rgba(0, 0, 0, 1); self.font_size = "14sp"
+
+
+            MDTextField:
+                id: item_description
+                hint_text: "Description"
+                text: "-" if not self.focus and not self.text else self.text
+                size_hint_x: 0.3
+                font_name: "Roboto-Italic" if self.text == "-" else "Roboto"
+                text_color: rgba(0, 0, 0, 0.5) if self.text == "-" else rgba(0, 0, 0, 1)
+                multiline: True
+                font_size: "12sp"
+                height: self.minimum_height
+                theme_text_color: "Custom"
+                text_color_normal: "black"
+                padding: [dp(0), dp(0), dp(0), dp(0)]
+                halign: "left"
+                on_focus: if self.focus and self.text == "-": self.text = ""; self.font_name = "Roboto"; self.text_color = rgba(0, 0, 0, 1); self.font_size = "14sp"
+
+            MDTextField:
+                id: unit
+                hint_text: "Unit"
+                text: "-" if not self.focus and not self.text else self.text
+                size_hint_x: 0.05
+                font_name: "Roboto-Italic" if self.text == "-" else "Roboto"
+                text_color: rgba(0, 0, 0, 0.5) if self.text == "-" else rgba(0, 0, 0, 1)
+                multiline: True
+                font_size: "12sp"
+                height: self.minimum_height
+                theme_text_color: "Custom"
+                text_color_normal: "black"
+                padding: [dp(0), dp(0), dp(0), dp(0)]
+                halign: "left"
+                on_focus: if self.focus and self.text == "-": self.text = ""; self.font_name = "Roboto"; self.text_color = rgba(0, 0, 0, 1); self.font_size = "14sp"
+
+            MDTextField:
+                id: rate
+                hint_text: "Rate"
+                text: "-" if not self.focus and not self.text else self.text
+                input_filter: "float"
+                size_hint_x: 0.08
+                font_name: "Roboto-Italic" if self.text == "-" else "Roboto"
+                text_color: rgba(0, 0, 0, 0.5) if self.text == "-" else rgba(0, 0, 0, 1)
+                multiline: True
+                font_size: "12sp"
+                height: self.minimum_height
+                theme_text_color: "Custom"
+                text_color_normal: "black"
+                padding: [dp(0), dp(0), dp(0), dp(0)]
+                halign: "left"
+                on_focus: if self.focus and self.text == "-": self.text = ""; self.font_name = "Roboto"; self.text_color = rgba(0, 0, 0, 1); self.font_size = "14sp"
+                on_text: root.calculate_itemcost()
+
+
+            MDTextField:
+                id: numbers
+                hint_text: "Numbers"
+                text: "-" if not self.focus and not self.text else self.text
+                input_filter: "float"
+                size_hint_x: 0.1
+                font_name: "Roboto-Italic" if self.text == "-" else "Roboto"
+                text_color: rgba(0, 0, 0, 0.5) if self.text == "-" else rgba(0, 0, 0, 1)
+                multiline: True
+                font_size: "12sp"
+                height: self.minimum_height
+                theme_text_color: "Custom"
+                text_color_normal: "black"
+                padding: [dp(0), dp(0), dp(0), dp(0)]
+                halign: "left"
+                on_focus: if self.focus and self.text == "-": self.text = ""; self.font_name = "Roboto"; self.text_color = rgba(0, 0, 0, 1); self.font_size = "14sp"
+                on_text: root.calculate_quantity()
+
+            MDTextField:
+                id: length
+                hint_text: "Length"
+                text: "-" if not self.focus and not self.text else self.text
+                input_filter: "float"
+                size_hint_x: 0.1
+                font_name: "Roboto-Italic" if self.text == "-" else "Roboto"
+                text_color: rgba(0, 0, 0, 0.5) if self.text == "-" else rgba(0, 0, 0, 1)
+                multiline: True
+                font_size: "12sp"
+                height: self.minimum_height
+                theme_text_color: "Custom"
+                text_color_normal: "black"
+                padding: [dp(0), dp(0), dp(0), dp(0)]
+                halign: "left"
+                on_focus: if self.focus and self.text == "-": self.text = ""; self.font_name = "Roboto"; self.text_color = rgba(0, 0, 0, 1); self.font_size = "14sp"
+                on_text: root.calculate_quantity()
+
+            MDTextField:
+                id: breadth
+                hint_text: "Breadth"
+                text: "-" if not self.focus and not self.text else self.text
+                input_filter: "float"
+                size_hint_x: 0.1
+                font_name: "Roboto-Italic" if self.text == "-" else "Roboto"
+                text_color: rgba(0, 0, 0, 0.5) if self.text == "-" else rgba(0, 0, 0, 1)
+                multiline: True
+                font_size: "12sp"
+                height: self.minimum_height
+                theme_text_color: "Custom"
+                text_color_normal: "black"
+                padding: [dp(0), dp(0), dp(0), dp(0)]
+                halign: "left"
+                on_focus: if self.focus and self.text == "-": self.text = ""; self.font_name = "Roboto"; self.text_color = rgba(0, 0, 0, 1); self.font_size = "14sp"
+                on_text: root.calculate_quantity()
+
+            MDTextField:
+                id: height
+                hint_text: "Height"
+                text: "-" if not self.focus and not self.text else self.text
+                input_filter: "float"
+                size_hint_x: 0.1
+                font_name: "Roboto-Italic" if self.text == "-" else "Roboto"
+                text_color: rgba(0, 0, 0, 0.5) if self.text == "-" else rgba(0, 0, 0, 1)
+                multiline: True
+                font_size: "12sp"
+                height: self.minimum_height
+                theme_text_color: "Custom"
+                text_color_normal: "black"
+                padding: [dp(0), dp(0), dp(0), dp(0)]
+                halign: "left"
+                on_focus: if self.focus and self.text == "-": self.text = ""; self.font_name = "Roboto"; self.text_color = rgba(0, 0, 0, 1); self.font_size = "14sp"
+                on_text: root.calculate_quantity()
+
+            MDTextField:
+                id: quantity
+                hint_text: "Quantity"
+                text: "-"
+                size_hint_x: 0.12
+                font_name: "Roboto"
+                text_color: rgba(0, 0, 0, 1)
+                multiline: True
+                font_size: "12sp"
+                height: self.minimum_height
+                theme_text_color: "Custom"
+                text_color_normal: "black"
+                padding: [dp(0), dp(0), dp(0), dp(0)]
+                halign: "left"
+                readonly: True
+                on_touch_down:
+                    if self.collide_point(*args[1].pos): \
+                    root.open_factor_dialog(); \
+                    args[1].ungrab(self)
+
+            MDTextField:
+                id: remarks
+                hint_text: "Remarks"
+                text: "-" if not self.focus and not self.text else self.text
+                input_filter: "float"
+                size_hint_x: 0.1
+                font_name: "Roboto-Italic" if self.text == "-" else "Roboto"
+                text_color: rgba(0, 0, 0, 0.5) if self.text == "-" else rgba(0, 0, 0, 1)
+                multiline: True
+                font_size: "12sp"
+                height: self.minimum_height
+                theme_text_color: "Custom"
+                text_color_normal: "black"
+                padding: [dp(0), dp(0), dp(0), dp(0)]
+                halign: "left"
+                on_focus: if self.focus and self.text == "-": self.text = ""; self.font_name = "Roboto"; self.text_color = rgba(0, 0, 0, 1); self.font_size = "12sp"
+
+
+
+
+        MDBoxLayout:
+            id: calc_info
+            orientation: "horizontal"
+            #spacing: dp(0)
+            #size_hint_y: None
+            #height: dp(48)
+            spacing: 0  # No gap between labels
+            padding: 0  # No padding around the layout
+            size_hint_y: None
+            height: max(quantity_factor.texture_size[1], Item_cost.texture_size[1])
+
+            Widget:
+                size_hint_x: 0.5  # left empty 50% space
+
+            MDLabel:
+                id: quantity_factor
+                text: ""
+                italic: True
+                font_style: "Caption"
+                halign: "right"
+                size_hint_y: None
+                height: self.texture_size[1]
+                padding: [0, 0]
+                markup: True
+                size_hint_x: 0.25
+
+
+            MDLabel:
+                id: Item_cost
+                text: ""
+                italic: True
+                font_style: "Caption"
+                halign: "right"
+                size_hint_y: None
+                height: self.texture_size[1]
+                padding: [0, 0]
+                markup: True
+                size_hint_x: 0.25
+
+
+
+
+
+<EstimationPart@MDBoxLayout>:
+    section_number: 1  # This will be set when creating the section
+    orientation: "vertical"
+    spacing: dp(0)
+    adaptive_height: True
+    size_hint_y: None
+    padding: dp(5)
+    md_bg_color: app.theme_cls.bg_normal
+
+    #canvas.before:
+    #    Color:
+    #        rgba: 0, 0, 0, 0.1
+    #    Line:
+    #        width: 1
+    #        rectangle: self.x, self.y, self.width, self.height
+
+
+    MDTextField:
+        id: section_header
+        text: f"Estimation Section {root.section_number}"
+        mode: "fill"
+        fill_color: rgba(0.49, 0.49, 0.49, 1)  # Light gray background
+        font_name: "Roboto-Bold"
+        font_size: "18sp"
+        halign: "center"
+        size_hint_y: None
+        height: dp(10)
+        theme_text_color: "Custom"
+        text_color_normal: "blue"
+        multiline: False
+        readonly: True  # Starts as readonly
+
+        # Click to edit behavior
+        on_touch_down:
+            if self.collide_point(*args[1].pos) and self.readonly: \
+            self.readonly = False; \
+            self.focus = True
+
+        # Finish editing on enter or focus loss
+        on_text_validate: self.readonly = True
+        on_focus: if not self.focus: self.readonly = True
+
+    # Horizontal divider
+    MDSeparator:
+        color: app.theme_cls.primary_color
+        height: dp(2)
+
+
+
+    MDTextField:
+        mode: "filled"
+
+        MDTextFieldLeadingIcon:
+            icon: "phone"
+            theme_icon_color: "Custom"
+            icon_color_normal: "lightgreen"
+
+        MDTextFieldHintText:
+            text: "Leading icon color normal"
+
+
+
+
+    MDBoxLayout:
+        orientation: "vertical"
+        spacing: dp(10)
+        adaptive_height: True
+        size_hint_y: None
+        MDBoxLayout:
+            id: dynamic_item_container
+            orientation: "vertical"
+            spacing: dp(0)
+            adaptive_height: True
+            size_hint_y: None
+        MDBoxLayout:
+            size_hint_y: None
+            height: dp(20)
+            padding: [0, 2, 0, 2]
+            MDButton:
+                on_release:
+                    new_item = Factory.ItemQuantity_Details()
+                    setattr(new_item, "item_number", len(dynamic_item_container.children) + 1)
+
+                    dynamic_item_container.add_widget(new_item)
+
+                MDBoxLayout:
+                    orientation: "horizontal"
+                    spacing: dp(5)
+                    size_hint_x: None
+                    width: self.minimum_width
+                    #height: max(quantity_factor.texture_size[1], Item_cost.texture_size[1])
+                    #height = dp(10)
+
+
+                    MDIcon:
+                        icon: "plus"
+                        size_hint_x: None
+                        width: self.texture_size[0]
+                    MDLabel:
+                        text: "              Add new item"
+                        theme_text_color: "Primary"
+                        size_hint_x: None
+                        text_size: None, None
+
+
+
+
+    #____________________________________________________________________________________________________________
+
+
+
+
+
+
+
+
+<MainScreen>:
+    id: main_screen
+
+    ScreenManager:
+        id: screen_manager
+
+        Screen:
+            name: "main_screen"
+
+            BoxLayout:
+                orientation: "vertical"
+                md_bg_color: 1, 1, 1, 1  # white
+
+
+                MDTopAppBar:
+                    title: "Civil Multipurpose Estimation Software"
+                    elevation: 4
+                    left_action_items: [["menu", lambda x: nav_drawer.set_state("open"), "Menu"]]
+                    right_action_items:         [        ["theme-light-dark", lambda x: app.open_theme_menu(x), "Change Theme"],        ["help-circle-outline", lambda x: app.show_help(), "Help"],      ]
+
+
+                BoxLayout:
+                    id: content_area
+                    orientation: "vertical"
+                    padding: dp(10)
+                    spacing: dp(10)
+
+                    MDLabel:
+                        id: default_label
+                        text: "Welcome to the Main Screen"
+                        halign: "center"
+
+        Screen:
+            name: "estimation_screen"
+            id: estimation_screen
+            md_bg_color: 1, 1, 1, 1  # white
+
+
+            BoxLayout:
+                orientation: "vertical"
+
+                MDTopAppBar:
+                    title: "Quantity Estimation"
+                    left_action_items:                                [                                    ["arrow-left", lambda x: setattr(root.ids.screen_manager, "current", "main_screen"), "Back"],                                    ["plus", lambda x: app.restart_estimation(), "Restart Estimation"]                                ]
+                    right_action_items: [["file-import", lambda x: app.import_excel(), "Import Excel"], ["file-export", lambda x: app.export_excel(), "Export Excel"]]
+                    elevation: 4
+
+                ScrollView:
+                    id: scroll_view  # <-- Add this line
+
+                    do_scroll_x: False
+                    do_scroll_y: True
+                    MDBoxLayout:
+                        id: main_content
+                        orientation: "vertical"
+                        spacing: dp(20)
+                        padding: dp(20)
+                        adaptive_height: True
+                        size_hint_y: None
+
+                        MDBoxLayout:
+                            orientation: "vertical"
+                            adaptive_height: True
+                            size_hint_y: None
+                            height: self.minimum_height
+                            pos_hint: {"top": 1}
+
+                            MDLabel:
+                                text: "General Information"
+                                halign: "center"
+                                theme_text_color: "Primary"
+                                size_hint_y: None
+                                height: self.texture_size[1]
+                                padding: [0, 0, 0, 0]
+
+                            MDBoxLayout:
+                                orientation: "vertical"
+                                #adaptive_height: True
+                                size_hint_y: None
+                                height: self.minimum_height
+                                pos_hint: {"top": 1}
+                                spacing: 0    # no space between children
+                                padding: 0    # no padding inside container
+                                MDBoxLayout:
+                                    orientation: "horizontal"
+                                    adaptive_height: True
+                                    size_hint_y: None
+                                    height: self.minimum_height
+                                    pos_hint: {"top": 1}
+                                    spacing: 0    # no space between children
+                                    padding: 0    # no padding inside container
+                                    spacing: dp(20)
+
+
+
+                                    MDTextField:
+                                        id: government
+                                        hint_text: "Nepal / Provincial / Local Government"
+                                        text: "-" if not self.focus and not self.text else self.text
+                                        size_hint_y: None
+                                        font_size: "12sp"
+                                        multiline: True
+                                        height: self.minimum_height
+                                        theme_text_color: "Custom"
+                                        text_color_normal: "black"
+                                        on_focus: if self.focus and self.text == "-": self.text = "";  self.font_size = "12sp"
+
+
+
+                                    MDTextField:
+                                        id: office
+                                        hint_text: "Ministry / Department / Office"
+                                        text: "-" if not self.focus and not self.text else self.text
+                                        size_hint_y: None
+                                        font_size: "12sp"
+                                        multiline: True
+                                        height: self.minimum_height
+                                        theme_text_color: "Custom"
+                                        text_color_normal: "black"
+                                        on_focus: if self.focus and self.text == "-": self.text = "";  self.font_size = "12sp"
+
+
+                                    MDTextField:
+                                        id: projectname
+                                        hint_text: "Project Name"
+                                        text: "-" if not self.focus and not self.text else self.text
+                                        size_hint_y: None
+                                        font_size: "12sp"
+                                        multiline: True
+                                        height: self.minimum_height
+                                        theme_text_color: "Custom"
+                                        text_color_normal: "black"
+                                        on_focus: if self.focus and self.text == "-": self.text = "";  self.font_size = "12sp"
+
+
+
+                                MDBoxLayout:
+                                    orientation: "horizontal"
+                                    adaptive_height: True
+                                    size_hint_y: None
+                                    height: self.minimum_height
+                                    pos_hint: {"top": 1}
+                                    spacing: dp(10)    # no space between children
+                                    padding: 0    # no padding inside container
+                                    spacing: dp(20)
+
+                                    MDTextField:
+                                        id: officeCode
+                                        hint_text: "Office code"
+                                        input_filter: "int"
+                                        text: "-" if not self.focus and not self.text else self.text
+                                        size_hint_y: None
+                                        font_size: "12sp"
+                                        multiline: True
+                                        height: self.minimum_height
+                                        theme_text_color: "Custom"
+                                        text_color_normal: "black"
+                                        on_focus: if self.focus and self.text == "-": self.text = "";  self.font_size = "12sp"
+
+                                    MDTextField:
+                                        id: projectlocation
+                                        hint_text: "Project Location"
+                                        text: "-" if not self.focus and not self.text else self.text
+                                        size_hint_y: None
+                                        font_size: "12sp"
+                                        multiline: True
+                                        height: self.minimum_height
+                                        theme_text_color: "Custom"
+                                        text_color_normal: "black"
+                                        on_focus: if self.focus and self.text == "-": self.text = "";  self.font_size = "12sp"
+
+                                    MDTextField:
+                                        id: projectcompletiontime
+                                        hint_text: "Expected Completion Time"
+                                        text: "-" if not self.focus and not self.text else self.text
+                                        size_hint_y: None
+                                        font_size: "12sp"
+                                        multiline: True
+                                        height: self.minimum_height
+                                        theme_text_color: "Custom"
+                                        text_color_normal: "black"
+                                        on_focus: if self.focus and self.text == "-": self.text = "";  self.font_size = "12sp"
+
+                                    MDTextField:
+                                        id: fiscalyear
+                                        hint_text: "Fiscal Year"
+                                        text: "-" if not self.focus and not self.text else self.text
+                                        size_hint_y: None
+                                        font_size: "12sp"
+                                        multiline: True
+                                        height: self.minimum_height
+                                        theme_text_color: "Custom"
+                                        text_color_normal: "black"
+                                        on_focus: if self.focus and self.text == "-": self.text = "";  self.font_size = "12sp"
+
+                                    MDTextField:
+                                        id: budgetsubheadingno
+                                        hint_text: "Budget Subheading No."
+                                        text: "-" if not self.focus and not self.text else self.text
+                                        size_hint_y: None
+                                        font_size: "12sp"
+                                        multiline: True
+                                        height: self.minimum_height
+                                        theme_text_color: "Custom"
+                                        text_color_normal: "black"
+                                        on_focus: if self.focus and self.text == "-": self.text = "";  self.font_size = "12sp"
+
+
+
+
+                        MDBoxLayout:
+                            orientation: "vertical"
+                            spacing: dp(0)
+                            adaptive_height: True
+                            size_hint_y: None
+
+                            MDBoxLayout:
+                                id: dynamic_sections_container
+                                orientation: "vertical"
+                                spacing: dp(0)
+                                adaptive_height: True
+                                size_hint_y: None
+
+                            MDBoxLayout:
+                                size_hint_y: None
+                                height: dp(20)
+                                padding: [0, 10, 0, 10]
+
+                                MDButton:
+                                    on_release:
+                                        new_section = Factory.EstimationPart()
+                                        setattr(new_section, "section_number", len(dynamic_sections_container.children) + 1)
+                                        dynamic_sections_container.add_widget(new_section)
+                                        scroll_view.scroll_to(new_section)
+
+                                    MDBoxLayout:
+                                        orientation: "horizontal"
+                                        spacing: dp(5)
+                                        size_hint_x: None
+                                        width: self.minimum_width
+
+                                        MDIcon:
+                                            icon: "plus"
+                                            size_hint_x: None
+                                            width: self.texture_size[0]
+
+                                        MDLabel:
+                                            text: "              Add new section"
+                                            theme_text_color: "Primary"
+                                            size_hint_x: None
+                                            text_size: None, None
+
+
+
+
+
+
+
+    MDNavigationDrawer:
+        id: nav_drawer
+
+        BoxLayout:
+            orientation: "vertical"
+            padding: "8dp"
+            spacing: "8dp"
+
+            MDLabel:
+                text: "Menu"
+                adaptive_height: True
+
+            ScrollView:
+                MDList:
+
+                    MDListItem:
+                        on_press:
+                            root.ids.content_area.clear_widgets()
+                            root.ids.content_area.add_widget(import_box)
+                            nav_drawer.set_state("close")
+                        MDListItemLeadingIcon:
+                            icon: "file-import"
+                        MDListItemHeadlineText:
+                            text: "Import (.xlsx)"
+
+                    MDListItem:
+                        on_press:
+                            root.ids.content_area.clear_widgets()
+                            root.ids.content_area.add_widget(MDLabel(text="Exporting to Excel...", halign="center"))
+                            nav_drawer.set_state("close")
+                        MDListItemLeadingIcon:
+                            icon: "file-export"
+                        MDListItemHeadlineText:
+                            text: "Export (.xlsx)"
+
+                    MDListItem:
+                        on_press:
+                            root.ids.content_area.clear_widgets()
+                            root.ids.content_area.add_widget(MDLabel(text="Exporting to Word Document...", halign="center"))
+                            nav_drawer.set_state("close")
+                        MDListItemLeadingIcon:
+                            icon: "file-word"
+                        MDListItemHeadlineText:
+                            text: "Export (.docx)"
+
+                    MDListItem:
+                        on_press:
+                            root.ids.screen_manager.current = "estimation_screen"
+                            nav_drawer.set_state("close")
+                        MDListItemLeadingIcon:
+                            icon: "ruler-square"
+                        MDListItemHeadlineText:
+                            text: "Quantity Estimation"
+
+                    MDListItem:
+                        on_press:
+                            root.ids.content_area.clear_widgets()
+                            root.ids.content_area.add_widget(MDLabel(text="Completion Report Section", halign="center"))
+                            nav_drawer.set_state("close")
+                        MDListItemLeadingIcon:
+                            icon: "file-document-outline"
+                        MDListItemHeadlineText:
+                            text: "Completion Report"
+
+                    MDListItem:
+                        on_press:
+                            app.open_theme_menu(self)
+                            nav_drawer.set_state("close")
+                        MDListItemLeadingIcon:
+                            icon: "theme-light-dark"
+                        MDListItemHeadlineText:
+                            text: "Change Theme"
+
+                    MDListItem:
+                        on_press: app.stop()
+                        MDListItemLeadingIcon:
+                            icon: "exit-to-app"
+                        MDListItemHeadlineText:
+                            text: "Exit"
+
+    #MDNavigationDrawer:
+    #    id: nav_drawer
+#
+    #    BoxLayout:
+    #        orientation: "vertical"
+    #        padding: "8dp"
+    #        spacing: "8dp"
+#
+    #        MDLabel:
+    #            text: "Menu"
+    #            #font_style: "H5"
+    #            #size_hint_y: None
+    #            height: self.texture_size[1]
+    #
+    #        ScrollView:
+    #            MDList:
+    #                OneLineIconListItem:
+    #                    text: "Import (.xlsx)"
+    #                    on_press:
+    #                        root.ids.content_area.clear_widgets()
+    #                        root.ids.content_area.add_widget(import_box)
+    #                        nav_drawer.set_state("close")
+    #                    IconLeftWidget:
+    #                        icon: "file-import"
+#
+    #                OneLineIconListItem:
+    #                    text: "Export (.xlsx)"
+    #                    on_press:
+    #                        root.ids.content_area.clear_widgets()
+    #                        root.ids.content_area.add_widget(MDLabel(text="Exporting to Excel...", halign="center"))
+    #                        nav_drawer.set_state("close")
+    #                    IconLeftWidget:
+    #                        icon: "file-export"
+#
+    #                OneLineIconListItem:
+    #                    text: "Export (.docx)"
+    #                    on_press:
+    #                        root.ids.content_area.clear_widgets()
+    #                        root.ids.content_area.add_widget(MDLabel(text="Exporting to Word Document...", halign="center"))
+    #                        nav_drawer.set_state("close")
+    #                    IconLeftWidget:
+    #                        icon: "file-word"
+#
+    #                OneLineIconListItem:
+    #                    text: "Quantity Estimation"
+    #                    on_press:
+    #                        root.ids.screen_manager.current = "estimation_screen"
+    #                        nav_drawer.set_state("close")
+    #                    IconLeftWidget:
+    #                        icon: "ruler-square"
+#
+    #                OneLineIconListItem:
+    #                    text: "Completion Report"
+    #                    on_press:
+    #                        root.ids.content_area.clear_widgets()
+    #                        root.ids.content_area.add_widget(MDLabel(text="Completion Report Section", halign="center"))
+    #                        nav_drawer.set_state("close")
+    #                    IconLeftWidget:
+    #                        icon: "file-document-outline"
+#
+    #                OneLineIconListItem:
+    #                    text: "Change Theme"
+    #                    on_press:
+    #                        app.open_theme_menu(self)
+    #                        nav_drawer.set_state("close")
+    #                    IconLeftWidget:
+    #                        icon: "theme-light-dark"
+#
+    #                OneLineIconListItem:
+    #                    text: "Exit"
+    #                    on_press: app.stop()
+    #                    IconLeftWidget:
+    #                        icon: "exit-to-app"
+
+<FactorDialogContent@MDBoxLayout>:
+    orientation: "vertical"
+    spacing: "12dp"
+    padding: "20dp"
+    adaptive_height: True
+
+    MDTextField:
+        id: factor_input
+        hint_text: "Enter multiplication factor"
+        input_filter: "float"
+        font_size: "18sp"
+        mode: "rectangle"
+        size_hint_y: None
+        height: "48dp"
+        pos_hint: {"center_x": 0.5}
+        halign: "center"
+        radius: [12, 12, 12, 12]
+
+
+
+<FactorDialog@MDDialog>:
+    title: "Enter Multiplication Factor"
+    type: "custom"
+    size_hint: 0.85, None
+    auto_dismiss: False
+    height: self.content_cls.height + dp(130)
+
+    FactorDialogContent:
+        id: content
+        size_hint_y: None
+
+    buttons:
+        BoxLayout:
+            size_hint_y: None
+            height: "56dp"
+            padding: "10dp"
+            spacing: "10dp"
+            MDRaisedButton:
+                text: "APPLY"
+                md_bg_color: app.theme_cls.primary_color
+                on_release:
+                    root.apply_callback(content.ids.factor_input.text);                    root.dismiss()
+            MDButton:
+                text: "CANCEL"
+                on_release: root.dismiss()

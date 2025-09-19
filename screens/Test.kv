@@ -1,0 +1,793 @@
+#:import Factory kivy.factory.Factory
+#:import MDLabel kivymd.uix.label.MDLabel
+##:import MDBoxLayout kivymd.uix.boxlayout.MDBoxLayout
+#:import Factory kivy.factory.Factory
+#:import MDIconButton kivymd.uix.button.MDIconButton
+#:import MDLabel kivymd.uix.label.MDLabel
+#:import MDBoxLayout kivymd.uix.boxlayout.MDBoxLayout
+#:import MDTextFieldLeadingIcon kivymd.uix.textfield.textfield
+##:import MDOneLineIconListItem kivymd.uix.list.MDOneLineIconListItem
+#:import Clock kivy.clock.Clock
+#:import MDDropdownMenu kivymd.uix.menu.MDDropdownMenu
+
+
+<ContentLabel@MDLabel>:
+    size_hint_y: None
+    padding: [dp(5), dp(5)]
+    #text_size: self.width, None
+    halign: "left"
+    valign: "middle"
+    #height: dp(30)
+
+<ContentField@MDTextField>:
+    mode:"filled"
+    #theme_line_color: "Custom"
+    theme_bg_color: "Custom"
+    fill_color_normal: app.theme_cls.backgroundColor  #0, 1, 0, .2
+    fill_color_focus:  app.theme_cls.backgroundColor  #0, 1, 0, .2
+    theme_text_color: "Custom"
+    text_color_normal: app.theme_cls.disabledTextColor     #"green"
+    theme_line_color: "Custom"
+    line_color_focus: "green"
+    text: "-" if not self.focus and not self.text else self.text
+    on_focus: if self.focus and self.text == "-": self.text = "";  self.font_size = "12sp"
+    size_hint_y: None
+    padding: [dp(5), dp(5)]
+    #text_size: self.width, None
+    halign: "left"
+    valign: "middle"
+    #multiline: True
+    height: dp(45)
+
+<ContentButton@MDButton>:
+    style: "text"
+    theme_shadow_color: "Custom"
+    shadow_color: "red"
+    height: dp(20)
+    MDButtonIcon:
+        theme_icon_color: "Custom"
+        icon_color: "green"
+    MDButtonText:
+        theme_text_color: "Custom"
+        text_color: "red"
+
+<ContentBoxV@MDBoxLayout>:
+    orientation: "vertical"
+    size_hint_y: None
+    #height: max([child.height for child in self.children])  # auto height after children are sized
+    #spacing: dp(20) if self.orientation == "horizontal" else dp(5)
+    spacing: dp(0)
+    padding: 0
+    md_bg_color : self.theme_cls.backgroundColor
+
+<ContentBoxH@MDBoxLayout>:
+    orientation: "horizontal"
+    size_hint_y: None
+    #height: max([child.height for child in self.children])  # auto height after children are sized
+    #spacing: dp(20) if self.orientation == "horizontal" else dp(5)
+    spacing: dp(10)
+    padding: 0
+    md_bg_color : self.theme_cls.backgroundColor
+
+<FactorDialogContent@MDBoxLayout>:
+    orientation: "vertical"
+    spacing: "12dp"
+    padding: "20dp"
+    adaptive_height: True
+
+    MDTextField:
+        id: factor_input
+        hint_text: "Enter multiplication factor"
+        input_filter: "float"
+        font_size: "18sp"
+        #mode: "rectangle"
+        size_hint_y: None
+        height: "48dp"
+        pos_hint: {"center_x": 0.5}
+        halign: "center"
+        radius: [12, 12, 12, 12]
+
+<FactorDialog@MDDialog>:
+    title: "Enter Multiplication Factor"
+    type: "custom"
+    size_hint: 0.85, None
+    auto_dismiss: False
+    height: self.content_cls.height + dp(130)
+
+    FactorDialogContent:
+        id: content
+        size_hint_y: None
+
+    buttons:
+        BoxLayout:
+            size_hint_y: None
+            height: "56dp"
+            padding: "10dp"
+            spacing: "10dp"
+            MDRaisedButton:
+                text: "APPLY"
+                md_bg_color: app.theme_cls.primary_color
+                on_release:
+                    root.apply_callback(content.ids.factor_input.text);                    root.dismiss()
+            MDButton:
+                text: "CANCEL"
+                on_release: root.dismiss()
+
+
+
+
+<MainScreen>:
+    id: main_screen
+#_____________________________________________________________________________________________________________________________________________main_screen
+
+    ScreenManager:
+        id: screen_manager
+
+        Screen:
+            name: "main_screen"
+            BoxLayout:
+                orientation: "vertical"
+                md_bg_color: app.theme_cls.backgroundColor
+                MDTopAppBar:
+                    id: top_appbar
+                    type: "small"
+                    MDTopAppBarLeadingButtonContainer:
+                        MDActionTopAppBarButton:
+                            icon: "menu"
+                            on_release: nav_drawer.set_state("open")
+                    MDTopAppBarTitle:
+                        text: "Civil Multipurpose Estimation Software"
+                        halign: "center"
+                    MDTopAppBarTrailingButtonContainer:
+                        BoxLayout:
+                            id: content_area
+                            orientation: "horizontal"
+                            size_hint_x: None
+                            spacing: dp(10)
+                            width: dp(200)
+                            padding: dp(5)
+                            MDIconButton:
+                                id: palette_button
+                                icon: "theme-light-dark"
+                                user_font_size: "24sp"
+                                on_release: app.create_dropdown()
+                            MDIconButton:
+                                id: settings_button
+                                icon: "cog"
+                                user_font_size: "24sp"
+                                on_release: settings_dialog.open()
+                            MDIconButton:
+                                id: notifications_button
+                                icon: "bell"
+                                user_font_size: "24sp"
+                            MDIconButton:
+                                id: help_button
+                                icon: "help-circle"
+                                user_font_size: "24sp"
+                BoxLayout:
+                    id: welcome_label
+                    orientation: "vertical"
+                    padding: dp(10)
+                    spacing: dp(10)
+                    md_bg_color: app.theme_cls.backgroundColor  # Automatically adapts to theme (1,1,1,1) #
+                    MDLabel:
+                        id: default_label
+                        text: "Welcome to the Main Screen"
+                        halign: "center"
+                        theme_text_color: "Primary"
+                        md_bg_color: app.theme_cls.backgroundColor
+#_____________________________________________________________________________________________________________________________________________estimation_screen
+        Screen:
+            name: "estimation_screen"
+            id: estimation_screen
+            BoxLayout:
+                orientation: "vertical"
+
+                MDTopAppBar:
+                    id: top_appbar
+                    type: "small"
+
+                    MDTopAppBarLeadingButtonContainer:
+                        BoxLayout:
+                            id: estimation_topappbar
+                            orientation: "horizontal"
+                            size_hint_x: None
+                            spacing: dp(10)
+                            width: dp(200)
+                            padding: dp(5)
+
+                            MDIconButton:
+                                id: left_arrow
+                                icon: "arrow-left"
+                                user_font_size: "24sp"
+                                on_release: root.ids.screen_manager.current = "main_screen"
+
+                            MDIconButton:
+                                id: restart_estimation
+                                icon: "plus"
+                                user_font_size: "24sp"
+                                on_release: app.restart_estimation()
+
+                    MDTopAppBarTitle:
+                        text: "Quantity Estimation"
+                        halign: "center"
+
+                    MDTopAppBarTrailingButtonContainer:
+                        BoxLayout:
+                            id: estimation_rightitems
+                            orientation: "horizontal"
+                            size_hint_x: None
+                            spacing: dp(10)
+                            width: dp(200)
+                            padding: dp(5)
+
+                            MDIconButton:
+                                id: file_import
+                                icon: "file-import"
+                                user_font_size: "24sp"
+                                on_release: app.create_dropdown()
+
+                            MDIconButton:
+                                id: file_export
+                                icon: "file-export"
+                                user_font_size: "24sp"
+                                on_release: settings_dialog.open()
+
+                ScrollView:
+                    id: scroll_view
+                    do_scroll_x: False
+                    do_scroll_y: True
+
+
+                    ContentBoxV:
+                        adaptive_height: True
+                        height: self.minimum_height
+
+                        ContentBoxV:
+                            spacing:dp(0)
+                            ContentLabel:
+                                padding: [dp(0), dp(0)]
+                                text: "General Information"
+
+                        ContentBoxV:
+                            spacing:dp(0)
+
+                            height: self.minimum_height
+                            ContentBoxH:
+
+                                ContentField:
+                                    id: office
+                                    MDTextFieldHintText:
+                                        text: "Ministry / Department / Office"
+                                ContentField:
+                                    id: projectname
+                                    MDTextFieldHintText:
+                                        text: "Project Name"
+
+                            ContentBoxH:
+                                orientation: "horizontal"
+                                ContentField:
+                                    id: officeCode
+                                    size_hint_x: 0.15
+                                    input_filter: "int"
+                                    MDTextFieldHintText:
+                                        text: "Office code"
+                                ContentField:
+                                    id: projectlocation
+                                    size_hint_x: 0.30
+                                    MDTextFieldHintText:
+                                        text: "Project Location"
+                                ContentField:
+                                    id: projectcompletiontime
+                                    size_hint_x: 0.25
+                                    MDTextFieldHintText:
+                                        text: "Expected Completion Time"
+                                ContentField:
+                                    id: fiscalyear
+                                    size_hint_x: 0.15
+                                    MDTextFieldHintText:
+                                        text: "Fiscal Year"
+                                ContentField:
+                                    id: budgetsubheadingno
+                                    size_hint_x: 0.15
+                                    MDTextFieldHintText:
+                                        text: "Budget No"
+
+                        ContentBoxV:
+                            size_hint_y: None
+                            adaptive_height: True
+                            ContentBoxV:
+                                id: dynamic_sections_container
+                                adaptive_height: True
+
+                            MDButton:
+                                id : NewSectionButton
+                                style: "elevated"
+                                theme_shadow_color: "Custom"
+                                shadow_color: "red"
+                                on_release:
+                                    new_section = Factory.EstimationPart()
+                                    setattr(new_section, "section_number", len(dynamic_sections_container.children) + 1)
+                                    dynamic_sections_container.add_widget(new_section)
+                                    app.cache_forNewSection()
+
+                                    scroll_view.scroll_to(new_section)
+                                #on_kv_post:
+                                #    self.dispatch("on_release")
+                                MDButtonIcon:
+                                    icon: "plus"
+                                    theme_icon_color: "Custom"
+                                    icon_color: "green"
+                                MDButtonText:
+                                    text: "New section"
+                                    theme_text_color: "Custom"
+                                    text_color: "red"
+#_____________________________________________________________________________________________________________________________________________MDNavigationDrawer
+    MDNavigationDrawer:
+        id: nav_drawer
+        BoxLayout:
+            orientation: "vertical"
+            padding: "8dp"
+            spacing: "8dp"
+            MDLabel:
+                text: "Menu"
+                adaptive_height: True
+            ScrollView:
+                MDList:
+                    MDListItem:
+                        on_press:
+                            root.ids.content_area.clear_widgets()
+                            root.ids.content_area.add_widget(import_box)
+                            nav_drawer.set_state("close")
+                        MDListItemLeadingIcon:
+                            icon: "file-import"
+                        MDListItemHeadlineText:
+                            text: "Import (.xlsx)"
+                    MDListItem:
+                        on_press:
+                            root.ids.content_area.clear_widgets()
+                            root.ids.content_area.add_widget(MDLabel(text="Exporting to Excel...", halign="center"))
+                            nav_drawer.set_state("close")
+                        MDListItemLeadingIcon:
+                            icon: "file-export"
+                        MDListItemHeadlineText:
+                            text: "Export (.xlsx)"
+                    MDListItem:
+                        on_press:
+                            root.ids.content_area.clear_widgets()
+                            root.ids.content_area.add_widget(MDLabel(text="Exporting to Word Document...", halign="center"))
+                            nav_drawer.set_state("close")
+                        MDListItemLeadingIcon:
+                            icon: "file-word"
+                        MDListItemHeadlineText:
+                            text: "Export (.docx)"
+                    MDListItem:
+                        id: estimation_list_item
+                        on_press:
+                            root.ids.screen_manager.current = "estimation_screen"
+                            nav_drawer.set_state("close")
+                        on_kv_post:
+                            Clock.schedule_once(lambda dt: self.dispatch("on_press"), 0)
+                        MDListItemLeadingIcon:
+                            icon: "ruler-square"
+                        MDListItemHeadlineText:
+                            text: "Quantity Estimation"
+                    MDListItem:
+                        on_press:
+                            root.ids.content_area.clear_widgets()
+                            root.ids.content_area.add_widget(MDLabel(text="Completion Report Section", halign="center"))
+                            nav_drawer.set_state("close")
+                        MDListItemLeadingIcon:
+                            icon: "file-document-outline"
+                        MDListItemHeadlineText:
+                            text: "Completion Report"
+                    MDListItem:
+                        on_press:
+                            app.open_theme_menu(self)
+                            nav_drawer.set_state("close")
+                        MDListItemLeadingIcon:
+                            icon: "theme-light-dark"
+                        MDListItemHeadlineText:
+                            text: "Change Theme"
+                    MDListItem:
+                        on_press: app.stop()
+                        MDListItemLeadingIcon:
+                            icon: "exit-to-app"
+                        MDListItemHeadlineText:
+                            text: "Exit"
+
+#_____________________________________________________________________________________________________________________________________________
+
+
+<EstimationPart@MDBoxLayout>:
+    #Triggered after NEW SECTION click
+    section_number: 1  # This will be set when creating the section
+    orientation: "vertical"
+    size_hint_y: None
+    adaptive_height: True
+    md_bg_color: self.theme_cls.backgroundColor
+    name: "EstimationPartSection_root"
+
+    MDTextField:
+        name:"estimation_Section_title"
+        id: section_header
+        mode:"filled"
+        theme_bg_color: "Custom"
+        fill_color_normal: app.theme_cls.backgroundColor  #0, 1, 0, .2
+        fill_color_focus:  app.theme_cls.backgroundColor  #0, 1, 0, .2
+        theme_text_color: "Custom"
+        text_color_normal: "green"    #"green"
+        theme_line_color: "Custom"
+        line_color_focus: "green"
+        text: f"Estimation Section {root.section_number}"
+        font_name: "Roboto-Bold"
+        font_size: "18sp"
+        on_focus: if self.focus and self.text == "-": self.text = "";  self.font_size = "12sp"
+        size_hint_y: None
+        padding: [dp(5), dp(5)]
+        halign: "center"
+        valign: "middle"
+        #multiline: True
+        height: dp(37)
+
+
+    ## Horizontal divider
+    #MDDivider:
+    #    size_hint_y: .5
+    #    orientation: "horizontal"
+
+    ContentBoxV:
+        name: "inside_Newsection"
+        size_hint_y: None
+        adaptive_height: True
+        ContentBoxV:
+            id: dynamic_item_container
+            size_hint_y: None
+            adaptive_height: True
+
+        ContentButton:
+            id: NewItemButton
+            on_release:
+                new_item = Factory.ItemQuantity_Details()
+                setattr(new_item, "item_number", len(dynamic_item_container.children) + 1)
+                setattr(new_item, "section_number", root.section_number)
+                dynamic_item_container.add_widget(new_item)
+                app.cache_forNewItem()
+            #on_kv_post:
+            #    self.dispatch("on_release")
+            MDButtonIcon:
+                icon: "plus"
+            MDButtonText:
+                text: "New Item"
+
+
+<ItemQuantity_Details@MDBoxLayout>:
+    item_number: 1
+    section_number: 1   # 👈 new property
+    orientation: "vertical"
+    adaptive_height: True
+    size_hint_y: None
+    md_bg_color: 0,0,0,0
+    #height: self.minimum_height
+    #padding: dp(10)
+
+    ContentBoxV:
+        MDTextField:
+            mode:"filled"
+            name: "item_number_label"
+            id: item_number_label
+            text: f"Item {root.item_number}"
+            font_size: "14sp"
+            halign: "left"
+            size_hint_y: None
+            height: dp(40)
+            theme_bg_color: "Custom"
+            fill_color_normal: app.theme_cls.backgroundColor  #0, 1, 0, .2
+            fill_color_focus:  app.theme_cls.backgroundColor  #0, 1, 0, .2
+            theme_text_color: "Custom"
+            text_color_normal: app.theme_cls.disabledTextColor     #"green"
+
+    ContentBoxV:
+        id: item_rate
+        spacing: dp(0)
+        adaptive_height: True
+        ContentBoxH:
+            ContentButton:
+                MDButtonIcon:
+                    icon: "plus"
+                MDButtonText:
+                    text: "Add standard rate"
+
+            ContentButton:
+                MDButtonIcon:
+                    icon: "plus"
+                MDButtonText:
+                    text: "Link to Norms' Rate"
+
+
+            Spinner:
+                id: dropdown
+                text: "Select item"
+                values: ["Title", "Resources", "Labour", "Materials", "Machines"]
+                size_hint_x: 0.3
+                size_hint_y: None
+                height: dp(30)
+                width: dp(150)
+                font_size: "12sp"
+                background_normal: ""   # removes default background image
+                background_color: app.theme_cls.backgroundColor
+                color: app.theme_cls.primaryColor #0.3333333333333333, 0.34901960784313724, 0.5725490196078431, 1.0 # 0.5, 0.5, 0.5, 1.0 #app.theme_cls.text_color_primary if hasattr(app.theme_cls, "text_color_primary") else (0, 0, 0, 1)
+
+            ContentField:
+                id: search_keyword_input
+                font_name: "MultiLangFont"
+                text: "हार्डबोर्ड"
+                on_text_validate: search_button.trigger_action(duration=0)  # triggers button press
+                MDTextFieldHintText:
+                    text: "Keyword"
+            ContentButton:
+                id: search_button
+                on_release:
+                    selected_category = dropdown.text
+                    search_text = search_keyword_input.text
+                    app.SearchResults = app.search_mapped_data(selected_category, search_text)
+                    dynamic_searchResults_container.clear_widgets()
+                    search_results = Factory.Search_Results()
+                    dynamic_searchResults_container.add_widget(search_results)
+                    search_results.ids.search_rv.data = [            {                "text": x,                "is_highlighted": False,                "index": i,                "font_name": "MultiLangFont",            }            for i, x in enumerate(app.SearchResults)        ]
+
+                    #dynamic_searchResults_container.add_widget(Factory.Search_Results())
+                    #dynamic_searchResults_container.children[0].ids.search_rv.data = [    {        "text": x,        "is_highlighted": False,        "index": i,        "font_name": "MultiLangFont",  }    for i, x in enumerate(app.SearchResults)]
+                    #dynamic_searchResults_container.children[0].ids.search_rv.data = [{"text": x, "is_highlighted": False, "index": i} for i, x in enumerate(app.SearchResults)]
+                MDButtonIcon:
+                    icon: "magnify"
+
+        ContentBoxV:
+            text: "Dynamic Search"
+            id: dynamic_searchResults_container
+            item_no: f"{root.section_number}.{root.item_number}"
+            size_hint_y: None
+            adaptive_height: True
+            height: self.minimum_height
+
+        ContentBoxH:        #Entry for the dimensions and rates
+            adaptive_height: True
+            height: self.minimum_height
+
+            ContentField:
+                id: item_number
+                text: f"{root.section_number}.{root.item_number}"  # Shows 1-based numbering
+                #input_filter: "float"
+                readonly: True
+                font_size: "12sp"
+                size_hint_x: 0.08
+                MDTextFieldHintText:
+                    text: "SN"
+
+            ContentField:
+                id: item_description
+                size_hint_x: 0.25
+                MDTextFieldHintText:
+                    text: "Description"
+
+
+            ContentField:
+                id: unit
+                size_hint_x: 0.05
+                height: dp(40)
+                MDTextFieldHintText:
+                    text: "Unit"
+
+            ContentField:
+                id: rate
+                input_filter: "float"
+                size_hint_x: 0.12
+                on_text: root.calculate_quantity()
+                MDTextFieldHintText:
+                    text: "Rate"
+
+            ContentField:
+                id: numbers
+                input_filter: "float"
+                size_hint_x: 0.08
+                on_text: root.calculate_quantity()
+                MDTextFieldHintText:
+                    text: "Numbers"
+
+
+            ContentField:
+                id: length
+                input_filter: "float"
+                size_hint_x: 0.1
+                on_text: root.calculate_quantity()
+                MDTextFieldHintText:
+                    text: "Length"
+
+
+            ContentField:
+                id: breadth
+                input_filter: "float"
+                size_hint_x: 0.1
+                on_text: root.calculate_quantity()
+                MDTextFieldHintText:
+                    text: "Breadth"
+
+
+            ContentField:
+                id: height
+                input_filter: "float"
+                size_hint_x: 0.1
+                on_text: root.calculate_quantity()
+                MDTextFieldHintText:
+                    text: "Height"
+
+
+            ContentField:
+                id: quantity
+                input_filter: "float"
+                size_hint_x: 0.12
+                readonly: True
+                on_touch_down:
+                    if self.collide_point(*args[1].pos): \
+                    root.open_factor_dialog(); \
+                    args[1].ungrab(self)
+                MDTextFieldHintText:
+                    text: "Quantity"
+
+
+            ContentField:
+                id: remarks
+                size_hint_x: 0.1
+                readonly: True
+                MDTextFieldHintText:
+                    text: "Remarks"
+
+        MDBoxLayout:
+            id: calc_info
+            orientation: "horizontal"
+            #spacing: dp(0)
+            #size_hint_y: None
+            #height: dp(48)
+            spacing: 0  # No gap between labels
+            padding: 0  # No padding around the layout
+            size_hint_y: None
+            height: max(quantity_factor.texture_size[1], Item_cost.texture_size[1])
+
+            Widget:
+                size_hint_x: 0.5  # left empty 50% space
+
+            MDLabel:
+                id: quantity_factor
+                text: ""
+                italic: True
+                #font_style: "Caption"
+                halign: "left"
+                size_hint_y: None
+                height: self.texture_size[1]
+                padding: [0, 0]
+                markup: True
+                size_hint_x: 0.30
+                theme_font_size: "Custom"   # 👈 tells KivyMD to allow custom size
+                font_size: "11sp"
+
+
+            MDLabel:
+                id: Item_cost
+                text: ""
+                italic: True
+                #font_style: "Caption"
+                halign: "left"
+                size_hint_y: None
+                height: self.texture_size[1]
+                padding: [0, 0]
+                markup: True
+                size_hint_x: 0.20
+                theme_font_size: "Custom"   # 👈 tells KivyMD to allow custom size
+                font_size: "11sp"
+
+
+
+
+<Search_Results@MDBoxLayout>:
+    id : Search_Results_
+    orientation: "vertical"
+    adaptive_height: True
+    #size_hint_y: None
+    padding: dp(8)
+    spacing: dp(12)
+    md_bg_color: self.theme_cls.backgroundColor if hasattr(self, 'theme_cls') else (1,1,1,1)
+    Widget:
+        size_hint_x: 0.5  # left empty 50% space:
+
+    MDLabel:
+        text: "[i][u]Search Results[/u][/i]"
+        markup: True
+        halign: "left"
+        valign: "middle"
+        theme_text_color: "Custom"
+        text_color: app.theme_cls.primaryColor     #"green"
+        theme_font_size: "Custom"   # 👈 tells KivyMD to allow custom size
+        font_size: "13sp"
+
+        #size_hint_y: None
+        #height: self.texture_size[1]
+
+    RecycleView:
+        id: search_rv
+        viewclass: "SearchItem"
+        bar_width: dp(4)
+        bar_color: app.theme_cls.primaryColor #if hasattr(self, 'theme_cls') else (0,0,1,1)
+        scroll_type: ['bars', 'content']
+        size_hint_y: None
+        height: min(        dp(200),         max(            dp(144),             len(self.data) * dp(48)          )    )
+        effect_cls: "ScrollEffect"
+
+        RecycleBoxLayout:
+            orientation: "vertical"
+            default_size: None, dp(48)
+            default_size_hint: 1, None
+            size_hint_y: None
+            height: self.minimum_height
+            spacing: dp(5)
+            padding: dp(5)
+
+<SearchItem@MDBoxLayout>:
+    id : SearchItem_
+    orientation: "horizontal"
+    size_hint_y: None
+    #height: dp(48)
+    #spacing: dp(10)
+    padding: dp(5)
+    text: "Search Results"
+    is_highlighted: False
+    index: 0
+    adaptive_height: True
+
+    BoxLayout:
+        orientation: "horizontal"
+        spacing: dp(0)
+        size_hint_y: None
+        height: dp(30)
+
+        Label:
+            id: search_textOnly
+            text: root.text
+            font_name: "NotoSansDevanagari"
+            font_size: "13sp"
+            halign: "left"
+            valign: "middle"
+            text_size: self.width, None
+            color: app.theme_cls.primaryColor
+            size_hint_y: None
+            size_hint_x: 0.8
+            on_text:                height: self.texture_size[1]
+
+        BoxLayout:
+            orientation: "horizontal"
+            spacing: dp(0)
+            size_hint_y: None
+            height: self.minimum_height
+            size_hint_x: 0.2
+            halign: "right"
+
+            MDIconButton:
+                icon: "check"
+                tooltip_text: "Apply"
+                on_release:  root.ApplyRateAnalysis(root)
+
+            MDIconButton:
+                icon: "pencil"
+                tooltip_text: "Edit"
+                on_release: root.open_editrate_dialog()
+                #on_release: app.show_edit_dialog(root.text)
+
+            MDIconButton:
+                icon: "eye"
+                tooltip_text: "View"
+                on_release: root.viewRateItem(root)
+
+            MDIconButton:
+                icon: "marker"
+                tooltip_text: "Highlight"
+                on_release: root.toggle_highlight(root.index)
+
