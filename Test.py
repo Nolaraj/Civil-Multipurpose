@@ -425,6 +425,7 @@ class SearchItem(BoxLayout):
                     )
                     grid.add_widget(create_row(key, ti))
                     widget_refs["Title_Section"].setdefault(key, []).append(ti)
+                    print("")
 
         # --- References ---
         if appliedRateData["References"]:
