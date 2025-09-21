@@ -70,6 +70,7 @@ objects_cache = {
         "Estimation_Sections": {}  # outer list of sections
     }
 }
+# Global cache for all dynamically created estimation GUI objects
 
 
 def find_values_by_key(data, target_key):
@@ -96,8 +97,32 @@ def find_values_by_key(data, target_key):
             results.extend(find_values_by_key(item, target_key))
 
     return results
+def ItemNo_Finder(insiderObjectAny):
+    inspector = GUIInspector(root_widget=app.root)
+    ItemQuantity_Details = inspector.find_nearestparent_with_parent_(insiderObjectAny, "item_no"  )
+    ItemQuantity_Details_Props = inspector.get_widget_properties(ItemQuantity_Details)
+    item_number = ItemQuantity_Details_Props["item_no"]
+    return item_number
+def subItemsFinder(ItemNo):
+    subItemsAll = list(objects_cache["Estimation_Data"]["Estimation_Sections"].keys())
+    matched_keys = [k for k in subItemsAll if k.startswith(f"{ItemNo}.")]
+    return matched_keys
 
-# Global cache for all dynamically created estimation GUI objects
+def DimObjsList_for_Specific_Item(inside_Object, reqDimAttribute = "rate"):
+    ItemNo = str(ItemNo_Finder(inside_Object))
+    AvailKeys = objects_cache['Estimation_Data']['Estimation_Sections'].keys()
+    ReqKeys = []
+    ReqObjs = []
+    for key in AvailKeys:
+        key = str(key)
+        key_itemNo = ".".join(key.split(".")[0:2])
+        if ItemNo == key_itemNo:
+            ReqKeys.append(key)
+    for key in ReqKeys:
+        obj = objects_cache['Estimation_Data']['Estimation_Sections'][key][reqDimAttribute]
+        ReqObjs.append((obj))
+    print(ReqKeys, ReqObjs)
+    return ReqObjs
 class LoginScreen(Screen):
     pass
 class MainScreen(Screen):
@@ -126,77 +151,11 @@ class CompletionScreen(Screen):
 class ItemQuantity_Details(BoxLayout):
     index = NumericProperty(0)
     is_expanded = BooleanProperty(True)  # Controls visibility
-    base_quantity = NumericProperty(0.0)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.size_hint_y = None
         self.bind(minimum_height=self.setter('height'))
-
-    def calculate_itemcost(self):
-
-        quantity = 0
-        rate = 0
-        if self.ids.quantity.text not in ["", "-"]:
-            quantity = float(self.ids.quantity.text)
-        if self.ids.rate.text not in ["", "-"]:
-            rate = float(self.ids.rate.text)
-        self.Itemcost = rate * quantity
-        self.ids.Item_cost.text = f"Item cost: { self.Itemcost}".rstrip('0').rstrip(
-            '.')
-    def dimension_specifier(self, dimension):
-        if dimension not in ["", "-"]:
-            value = float (dimension)
-            return value
-        else:
-            return False
-    def calculate_quantity(self, factor = 1):
-        # try:
-            n= self.dimension_specifier(self.ids.numbers.text)
-            l = self.dimension_specifier(self.ids.length.text)
-            b = self.dimension_specifier(self.ids.breadth.text)
-            h = self.dimension_specifier(self.ids.height.text)
-            dimlist = [n, l, b, h]
-            numbers = [x for x in dimlist if isinstance(x, (int, float)) and not isinstance(x, bool)]
-
-            if numbers:  # means at least one number exists
-                self.base_quantity = prod(numbers)
-            else:
-                self.base_quantity = 0
-
-
-
-
-            # n = float(self.ids.numbers.text) if self.ids.numbers.text not in ["", "-"] else 1
-            # l = float(self.ids.length.text) if self.ids.length.text not in ["", "-"] else 1
-            # b = float(self.ids.breadth.text) if self.ids.breadth.text not in ["", "-"] else 1
-            # h = float(self.ids.height.text) if self.ids.height.text not in ["", "-"] else 1
-            # self.base_quantity = n * l * b * h
-            self.ids.quantity.text = str(self.base_quantity) if self.base_quantity == int(
-                self.base_quantity) else f"{self.base_quantity:.2f}"
-            self.ids.quantity.text = f"{self.base_quantity * factor:.2f}".rstrip('0').rstrip('.')
-
-
-            self.quantity = float(self.ids.quantity.text) if self.ids.quantity.text not in ["", "-"] else 0
-
-            if float(self.ids.quantity.text) != 0:
-                factor = float(self.ids.quantity.text) / self.base_quantity
-                self.ids.quantity_factor.text = (
-                    f"Quantity factor: {factor:.2f}"
-                )
-                if abs(factor-1) > 0.001:
-                    self.ids.quantity_factor.theme_text_color= "Custom"
-                    self.ids.quantity_factor.text_color= 1, 0.41, 0.71, 1  # Pink (RGBA for deep pink)
-                else:
-                    self.ids.quantity_factor.text_color = [0.7, 0.7, 0.7, 1]  # Darker gray for dark theme
-
-            else:
-                self.ids.quantity_factor.text = "[i]Base quantity is zero — cannot compute factor[/i]"
-                self.ids.quantity_factor.text_color = [1, 0.0, 0.0, 1]
-            self.calculate_itemcost()
-
-        # except:
-        #     self.ids.quantity.text = "-"
 
 
     def apply_factor(self, factor_text):
@@ -234,6 +193,264 @@ class ItemQuantity_Details(BoxLayout):
             ),
         )
         self.dialog.open()
+    def setAppliedrateTonewSubitem(self, new_subitem):
+        itemNo = ItemNo_Finder(new_subitem)
+        rows,  appliedRateData = app.gui_DB.load_appliedRateAnalysis(itemNo)
+        if rows:
+            Unitrate  = appliedRateData["Second Inner table"]["Unit Rate"][0]
+            print(Unitrate, "iam here")
+        """
+        Apply rate analysis or cached rate to the new SubItemRow
+        """
+        inspector = GUIInspector(root_widget=app.root)
+        print(inspector.get_widget_properties(new_subitem))
+
+        def delay_and_apply():
+            try:
+                # Get the rate widget inside the new SubItemRow
+                rate_widget = new_subitem.ids.get("rate", None)
+
+                if rate_widget:
+                    rate_widget.text = Unitrate
+                else:
+                    print("⚠️ Could not find 'rate' field in SubItemRow")
+
+
+            except Exception as e:
+                print(f"Error in setAppliedrateTonewSubitem: {e}")
+
+        delay_and_apply()
+        # Clock.schedule_once(delay_and_apply, 0.2)
+    def delete_self(self):
+        """Remove this SubItemRow from its parent container"""
+
+        ItemNo = self.item_no
+        itemNosKeys = objects_cache["Estimation_Data"]["Estimation_Sections"].keys()
+        keys_list = list(itemNosKeys)
+        matched_keys = [k for k in keys_list if k.startswith(f"{ItemNo}.")]
+        print(ItemNo, "ItemNo", keys_list,matched_keys )
+
+        if len(matched_keys)<= 1:
+            return
+        latest = max(matched_keys, key=lambda k: list(map(int, k.split('.'))))
+        print(ItemNo, "ItemNo", keys_list,matched_keys, "latest", latest )
+
+        latestdim_ItemnoObj = objects_cache["Estimation_Data"]["Estimation_Sections"][f"{latest}"]["item_number"]
+        inspector = GUIInspector(root_widget=app.root)
+        SubItemRow_base = inspector.find_nearestparent_with_parent_(latestdim_ItemnoObj, "name", "SubItemRow_base")
+        print(inspector.get_widget_properties(SubItemRow_base))
+
+
+        if SubItemRow_base:
+            print(latest, "latest")
+            print(inspector.get_widget_properties(SubItemRow_base))
+            SubItemRow_base.clear_widgets()
+            removed_value = objects_cache["Estimation_Data"]["Estimation_Sections"].pop(latest, None)
+
+            # 2️⃣ Remove the widget from container
+            dimensions_container = SubItemRow_base.parent
+            print(latest, "latest")
+            print(inspector.get_widget_properties(dimensions_container))
+            print(inspector.get_widget_properties(SubItemRow_base.parent))
+
+            if SubItemRow_base and SubItemRow_base.parent:
+                SubItemRow_base.parent.remove_widget(SubItemRow_base)
+            for idx, widget in enumerate(dimensions_container.children[::-1], 1):  # reverse order
+                widget.subitem_number = idx
+                # Update the UI label/text if you have one
+                if hasattr(widget, "MDButtonText"):
+                    widget.MDButtonText.text = f"Subitem {idx}"
+
+            #Deletion of the data from the database
+            print(latest, "latest")
+            app.gui_DB.delete_SubItemData_(latest)
+
+            # print(objects_cache["Estimation_Data"]["Estimation_Sections"].keys())
+            # print(f"🗑️ Deleted SubItemRow")# {self.section_number}.{self.item_number}.{self.subitem_number}")
+
+class EstimationPart(BoxLayout):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.size_hint_y = None
+        self.bind(minimum_height=self.setter('height'))
+    def delete_self(self):
+        """Remove this ItemRow from its parent container"""
+        sectionNo = self.section_no
+        itemNosKeys = objects_cache["Estimation_Data"]["Estimation_Sections"].keys()
+        subItemskeys_list = list(itemNosKeys)
+        ItemKeysList = [k.rsplit('.', 1)[0] for k in subItemskeys_list]
+        unique_ItemKeysList = list(dict.fromkeys(ItemKeysList))
+        matched_keys_ItemNo = [k for k in unique_ItemKeysList if k.startswith(f"{sectionNo}.")]
+        print(matched_keys_ItemNo, unique_ItemKeysList, ItemKeysList, subItemskeys_list, sectionNo, itemNosKeys)
+        if len(matched_keys_ItemNo)<= 1:
+            return
+        latestItem = max(matched_keys_ItemNo, key=lambda k: list(map(int, k.split('.'))))
+        matched_keys_SubItemNo = [k for k in subItemskeys_list if k.startswith(f"{latestItem}.")]
+
+
+        latestdim_ItemnoObj = objects_cache["Estimation_Data"]["Estimation_Sections"][f"{matched_keys_SubItemNo[0]}"]["item_number"]
+        inspector = GUIInspector(root_widget=app.root)
+        ItemRow_base = inspector.find_nearestparent_with_parent_(latestdim_ItemnoObj, "name", "ItemRow_base")
+
+        if ItemRow_base:
+            ItemRow_base.clear_widgets()
+            print(objects_cache["Estimation_Data"]["Estimation_Sections"].keys())
+            for item in matched_keys_SubItemNo:
+                removed_value = objects_cache["Estimation_Data"]["Estimation_Sections"].pop(item, None)
+            print(objects_cache["Estimation_Data"]["Estimation_Sections"].keys(), "asdadsadas")
+
+
+            # 2️⃣ Remove the widget from container
+            dimensions_container = ItemRow_base.parent
+            if ItemRow_base and ItemRow_base.parent:
+                ItemRow_base.parent.remove_widget(ItemRow_base)
+            for idx, widget in enumerate(dimensions_container.children[::-1], 1):  # reverse order
+                widget.item_number = idx
+                # Update the UI label/text if you have one
+                if hasattr(widget, "MDButtonText"):
+                    widget.MDButtonText.text = f"Subitem {idx}"
+
+            # Deletion of the data from the database
+            for value in matched_keys_SubItemNo:
+                #Deletion ofthe data in the dimensionbox
+                app.gui_DB.delete_SubItemData_(value)
+            #For the deletion of the data from the rate ana
+            print(objects_cache["Estimation_Data"]["Estimation_Sections"].keys())
+            print(f"🗑️ Deleted SubItemRow")# {self.section_number}.{self.item_number}.{self.subitem_number}")
+
+
+
+
+
+        # ItemNo = self.item_no
+        # itemNosKeys = objects_cache["Estimation_Data"]["Estimation_Sections"].keys()
+        # keys_list = list(itemNosKeys)
+        #
+        # matched_keys_SubitemNO = [k for k in keys_list if k.startswith(f"{ItemNo}.")]
+        #
+        # if len(matched_keys)<= 1:
+        #     return
+        # latest = max(matched_keys, key=lambda k: list(map(int, k.split('.'))))
+        # latestdim_ItemnoObj = objects_cache["Estimation_Data"]["Estimation_Sections"][f"{latest}"]["item_number"]
+        # inspector = GUIInspector(root_widget=app.root)
+        # SubItemRow_base = inspector.find_nearestparent_with_parent_(latestdim_ItemnoObj, "name", "SubItemRow_base")
+        #
+        #
+        # if SubItemRow_base:
+        #     SubItemRow_base.clear_widgets()
+        #     removed_value = objects_cache["Estimation_Data"]["Estimation_Sections"].pop(latest, None)
+        #
+        #     # 2️⃣ Remove the widget from container
+        #     dimensions_container = SubItemRow_base.parent
+        #     if SubItemRow_base and SubItemRow_base.parent:
+        #         SubItemRow_base.parent.remove_widget(SubItemRow_base)
+        #     for idx, widget in enumerate(dimensions_container.children[::-1], 1):  # reverse order
+        #         widget.subitem_number = idx
+        #         # Update the UI label/text if you have one
+        #         if hasattr(widget, "MDButtonText"):
+        #             widget.MDButtonText.text = f"Subitem {idx}"
+        #
+        #     #Deletion of the data from the database
+        #     print(latest, "latest")
+        #     app.gui_DB.delete_SubItemData_(latest)
+        #
+        #     # print(objects_cache["Estimation_Data"]["Estimation_Sections"].keys())
+        #     # print(f"🗑️ Deleted SubItemRow")# {self.section_number}.{self.item_number}.{self.subitem_number}")
+    def click_subitem(self):
+        inspector = GUIInspector(root_widget=self)  # use self.root, not app.root
+        widget = inspector.get_widget_by_id("NewSubItemButton")
+        if widget:
+            widget.dispatch("on_release")
+        else:
+            print("Widget with id 'ITem' not found!")
+    # Clock.schedule_once(click_subitem, 0.3)  # delay in seconds
+class SubItemRow(BoxLayout):   # or MDBoxLayout, depending on your base
+    base_quantity = NumericProperty(0.0)
+
+    def dimension_specifier(self, dimension):
+        if dimension not in ["", "-"]:
+            value = float(dimension)
+            return value
+        else:
+            return False
+
+    def calculate_quantity(self, factor=1):
+        # try:
+        n = self.dimension_specifier(self.ids.numbers.text)
+        l = self.dimension_specifier(self.ids.length.text)
+        b = self.dimension_specifier(self.ids.breadth.text)
+        h = self.dimension_specifier(self.ids.height.text)
+        dimlist = [n, l, b, h]
+        numbers = [x for x in dimlist if isinstance(x, (int, float)) and not isinstance(x, bool)]
+
+        if numbers:  # means at least one number exists
+            self.base_quantity = prod(numbers)
+        else:
+            self.base_quantity = 0
+
+
+        self.ids.quantity.text = str(self.base_quantity) if self.base_quantity == int(
+            self.base_quantity) else f"{self.base_quantity:.2f}"
+        self.ids.quantity.text = f"{self.base_quantity * factor:.2f}".rstrip('0').rstrip('.')
+
+        self.quantity = float(self.ids.quantity.text) if self.ids.quantity.text not in ["", "-"] else 0
+
+        def quantityfactorcomp():
+            ItemNo = ItemNo_Finder(self.ids.numbers)
+            snNo = str(
+                ItemNo) + ".1"  # Could be taken any as all the dimensions box SN key contains same object of calc, quantity and cost objects
+            quantity_factor = objects_cache["Estimation_Data"]["Estimation_Sections"][snNo]["quantity_factor"]
+            if float(self.ids.quantity.text) != 0:
+                factor = float(self.ids.quantity.text) / self.base_quantity
+                quantity_factor.text = (
+                    f"Item Quantity: {factor:.2f}"
+                )
+                if abs(factor - 1) > 0.001:
+                    quantity_factor.theme_text_color = "Custom"
+                    quantity_factor.text_color = 1, 0.41, 0.71, 1  # Pink (RGBA for deep pink)
+                else:
+                    quantity_factor.text_color = [0.7, 0.7, 0.7, 1]  # Darker gray for dark theme
+
+            else:
+                quantity_factor.text = "[i]Base quantity is zero — cannot compute factor[/i]"
+                quantity_factor.text_color = [1, 0.0, 0.0, 1]
+
+        quantityfactorcomp()
+        self.calculate_itemcost()
+
+    def calculate_itemcost(self):
+        ItemNo  = ItemNo_Finder(self.ids.numbers)
+        snNo = str(ItemNo) + ".1"   #Could be taken any as all the dimensions box SN key contains same object of calc, quantity and cost objects
+        quantity_factor = objects_cache["Estimation_Data"]["Estimation_Sections"][snNo]["quantity_factor"]
+        Item_cost = objects_cache["Estimation_Data"]["Estimation_Sections"][snNo]["Item_cost"]
+
+
+        #Total item quantity computations
+        qntyObjsList = DimObjsList_for_Specific_Item(self.ids.numbers, reqDimAttribute="quantity")
+        qntyValueList = [x.text for x in qntyObjsList]
+        def safe_float(x):
+            try:
+                return float(x)
+            except (ValueError, TypeError):
+                return 0.0
+        totalQntyValue = sum(safe_float(v) for v in qntyValueList)
+        if totalQntyValue<0:
+            quantity_factor.text_color = [1, 0.0, 0.0, 1]
+            quantity_factor.text = (f"Item Quantity: {totalQntyValue:.2f}"        )
+        else:
+            quantity_factor.text_color = app.theme_cls.disabledTextColor
+            quantity_factor.text = (f"Item Quantity: {totalQntyValue:.2f}"        )
+
+        #Computations of the Item costs
+        quantity = 0
+        rate = 0
+        if self.ids.quantity.text not in ["", "-"]:
+            quantity = float(self.ids.quantity.text)
+        if self.ids.rate.text not in ["", "-"]:
+            rate = float(self.ids.rate.text)
+        self.Itemcost = rate * totalQntyValue
+        Item_cost.text = f"Item cost: {self.Itemcost:.2f}".rstrip('0').rstrip('.')
+
 class SearchItem(BoxLayout):
 
     # def open_editrate_dialog(self):
@@ -288,20 +505,8 @@ class SearchItem(BoxLayout):
                 label = self.ids.search_textOnly
                 Rectangle(pos=label.pos, size=label.size)
 
-    def ItemNo_Finder(self, search_item):
-        inspector = GUIInspector(root_widget=app.root)
-        dynamic_searchResults_container_Obj = inspector.find_nearestparent_with_parent_(search_item, "item_no"  )
-        dynamic_searchResults_container_Obj_Props = inspector.get_widget_properties(dynamic_searchResults_container_Obj)
-        item_number = dynamic_searchResults_container_Obj_Props["item_no"]
-        return item_number
-    def rate_objectFinder(self, search_item):
-        inspector = GUIInspector(root_widget=app.root)
-        dynamic_searchResults_container_Obj = inspector.find_nearestparent_with_parent_(search_item, "item_no"  )
-        dynamic_searchResults_container_Obj_Props = inspector.get_widget_properties(dynamic_searchResults_container_Obj)
-        dynamic_searchResults_container_Obj_Parent = dynamic_searchResults_container_Obj_Props["parent"]
-        rate_objectFinder = inspector.find_parent_with_child_(dynamic_searchResults_container_Obj_Parent, "name", "item_rate")
 
-        return rate_objectFinder
+
     def search_textOnlyFinder(self, search_item):
         inspector = GUIInspector(root_widget=app.root)
         dynamic_searchResults_container_Obj = inspector.find_nearestparent_with_parent_(search_item, "item_no")
@@ -313,7 +518,7 @@ class SearchItem(BoxLayout):
         search_item: the instance of SearchItem that was clicked
         """
         # Try to find the RecycleView safely
-        item_number = self.ItemNo_Finder( search_item)
+        item_number = ItemNo_Finder( search_item)
 
 
         rv = None
@@ -348,8 +553,14 @@ class SearchItem(BoxLayout):
         rv.refresh_from_data()
         app.toast(f'Selected text {rv.data[0]["text"]}')
 
-        #Call for database handling
+        #Application to the rate field in gui
+        # objects = find_values_by_key(data, target_key) #Returns in list
+        # subItemsList = subItemsFinder(ItemNo=item_number)
+        # for items in subItemsList:
+        #     rateObjs =
 
+
+        #Call for database handling
         applied_text = search_item.text  # text from SearchItem
         appliedDataTitlePresentation = applied_text.split("_")
         NormsDBRef = int(appliedDataTitlePresentation[0])
@@ -360,11 +571,11 @@ class SearchItem(BoxLayout):
             self.sendAppRateTo_DB(item_number, fromViewedandApplied[1])
 
             # Apply the rate to the quantity estimation database rate section
-            rate_Obj = self.rate_objectFinder(search_item)
-            rate_Obj.text = "{:.2f}".format(find_values_by_key(fromViewedandApplied[1], "Unit Rate")[0][0])
-
-
-
+            rate_Objs = DimObjsList_for_Specific_Item(search_item)
+            for rate_Obj in rate_Objs:
+                rate_Obj.text = "{:.2f}".format(
+                    find_values_by_key(fromViewedandApplied[1], "Unit Rate")[0][0]
+                )
             rateDeviation = abs(original_unitRate[0] - float(fromViewedandApplied[1]["Second Inner table"]["Unit Rate"][0]))
             if rateDeviation > 1:
                 search_textOnlyObj.color = "#FF69B4" #(225, 22, 122, 1)
@@ -377,8 +588,10 @@ class SearchItem(BoxLayout):
             self.sendAppRateTo_DB(item_number, appliedRateData)
 
             # Apply the rate to the quantity estimation database rate section
-            rate_Obj = self.rate_objectFinder(search_item)
-            rate_Obj.text = "{:.2f}".format(find_values_by_key(appliedRateData, "Unit Rate")[0][0])
+            rate_Objs = DimObjsList_for_Specific_Item(search_item)
+            # rate_Obj.text = "{:.2f}".format(find_values_by_key(appliedRateData, "Unit Rate")[0][0])
+            for rate_Obj in rate_Objs:
+                rate_Obj.text = "{:.2f}".format(find_values_by_key(appliedRateData, "Unit Rate")[0][0])
             search_textOnlyObj.color = app.theme_cls.primaryColor
 
         self.sendGenInfoQEst_toDB(objects_cache)
@@ -393,7 +606,7 @@ class SearchItem(BoxLayout):
 
     def viewRateItem(self, search_item):
         applied_text = search_item.text
-        item_number = self.ItemNo_Finder(search_item)
+        item_number = ItemNo_Finder(search_item)
 
         applied_text = search_item.text  # text from SearchItem
         appliedDataTitlePresentation = applied_text.split("_")
@@ -928,11 +1141,14 @@ class GUIInspector:
                 return result
         return None
 
-    def find_parent_with_child_(self, parent, target_attribute, target_value):
+    def find_parent_with_child_(self, parent, target_attribute, target_value= ""):
         """
         Flows Down the levels
         """
         # Check if parent itself has the attribute and value
+        if hasattr(parent, target_attribute) and target_value =="":
+            return parent
+
         if hasattr(parent, target_attribute):
             if getattr(parent, target_attribute) == target_value:
                 return parent
@@ -1030,6 +1246,11 @@ class CivilEstimationApp(MDApp):
         """Close DB when app exits"""
         self.gui_DB.conn.close()
     def _post_start(self, *args):
+        self.clickNewSection()
+        self.clickNewItem()
+        # self.clickNewSubItem()
+
+    def clickNewSection(self):
         inspector = GUIInspector(root_widget=app.root)  # use self.root, not app.root
         widget = inspector.get_widget_by_id("NewSectionButton")
         if widget:
@@ -1037,6 +1258,7 @@ class CivilEstimationApp(MDApp):
         else:
             print("Widget with id 'NewSectionButton' not found!")
 
+    def clickNewItem(self):
         inspector = GUIInspector(root_widget=app.root)  # use self.root, not app.root
         widget = inspector.get_widget_by_id("NewItemButton")
         if widget:
@@ -1507,12 +1729,15 @@ class CivilEstimationApp(MDApp):
 
 
         # objects_cache["Estimation_Data"]["Estimation_Sections"].append([])  #Innermost list is the estsec1, est sec2...
-    def cache_forNewItem(self):
+    def cache_forNewItem(self, SubitemObj):
         inspector = GUIInspector(root_widget=app.root)
+        SubItemObj = inspector.find_parent_with_child_(SubitemObj, "name", "item_number")
+        SubItemObjProps = inspector.get_widget_properties(SubItemObj)
+        SubItemObjValue = SubItemObjProps["text"]
 
         #Itew Number is set as key for all
-        ItemNoObj = inspector.get_widget_by_id("item_number")
-        ItemNo = inspector.get_widget_by_id("item_number").text
+        ItemNoObj = SubItemObj
+        ItemNo = SubItemObjValue
 
 
         itemsObjects = {}
@@ -1551,7 +1776,7 @@ class CivilEstimationApp(MDApp):
         objects_cache["Estimation_Data"]["Estimation_Sections"][ItemNo] = itemsObjects
 
 
-        print(objects_cache)
+        print(objects_cache["Estimation_Data"]["Estimation_Sections"].keys(), "Here at the cache function")
 
 
 

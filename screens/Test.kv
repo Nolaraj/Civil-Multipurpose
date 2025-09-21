@@ -311,7 +311,6 @@
                                     setattr(new_section, "section_number", len(dynamic_sections_container.children) + 1)
                                     dynamic_sections_container.add_widget(new_section)
                                     app.cache_forNewSection()
-
                                     scroll_view.scroll_to(new_section)
                                 #on_kv_post:
                                 #    self.dispatch("on_release")
@@ -406,8 +405,9 @@
     orientation: "vertical"
     size_hint_y: None
     adaptive_height: True
-    md_bg_color: self.theme_cls.backgroundColor
+    md_bg_color: app.theme_cls.backgroundColor
     name: "EstimationPartSection_root"
+    section_no : f"{root.section_number}"
 
     MDTextField:
         name:"estimation_Section_title"
@@ -453,13 +453,22 @@
                 setattr(new_item, "item_number", len(dynamic_item_container.children) + 1)
                 setattr(new_item, "section_number", root.section_number)
                 dynamic_item_container.add_widget(new_item)
-                app.cache_forNewItem()
+                root.click_subitem()
+                #app.cache_forNewItem()
             #on_kv_post:
             #    self.dispatch("on_release")
             MDButtonIcon:
                 icon: "plus"
             MDButtonText:
                 text: "New Item"
+
+        ContentButton:
+            id: delete_Item
+            on_release: root.delete_self()
+            MDButtonIcon:
+                icon: "cross"
+            MDButtonText:
+                text: "Delete Item"
 
 
 <ItemQuantity_Details@MDBoxLayout>:
@@ -471,6 +480,9 @@
     md_bg_color: 0,0,0,0
     #height: self.minimum_height
     #padding: dp(10)
+    item_no: f"{root.section_number}.{root.item_number}"
+    name: "ItemRow_base"
+
 
     ContentBoxV:
         MDTextField:
@@ -489,10 +501,13 @@
             text_color_normal: app.theme_cls.disabledTextColor     #"green"
 
     ContentBoxV:
+
         id: item_rate
         spacing: dp(0)
         adaptive_height: True
+        name: "contents_layout"
         ContentBoxH:
+            name: "contents_layout_firstLIne"
             ContentButton:
                 MDButtonIcon:
                     icon: "plus"
@@ -543,109 +558,52 @@
                 MDButtonIcon:
                     icon: "magnify"
 
+
+            #_________________________________________________________________xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+            ContentButton:
+                id: NewSubItemButton
+                on_release:
+                    new_Subitem = Factory.SubItemRow()
+                    setattr(new_Subitem, "subitem_number", len(dimensions_container.children) + 1)
+                    setattr(new_Subitem, "item_number", root.item_number)
+                    setattr(new_Subitem, "section_number", root.section_number)
+                    dimensions_container.add_widget(new_Subitem)
+                    app.cache_forNewItem(root)      #It also sets the rate to the new boxes if the rate analysis is previously applied
+                    root.setAppliedrateTonewSubitem(new_Subitem)
+
+                #on_kv_post:
+                #    self.dispatch("on_release")
+                MDButtonIcon:
+                    icon: "plus"
+                MDButtonText:
+                    text: "New subtitle"
+
+            ContentButton:
+                id: delete_SubItem
+                on_release: root.delete_self()
+                MDButtonIcon:
+                    icon: "cross"
+                MDButtonText:
+                    text: "Delete"
+                            #_________________________________________________________________xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
         ContentBoxV:
             text: "Dynamic Search"
             id: dynamic_searchResults_container
-            item_no: f"{root.section_number}.{root.item_number}"
             size_hint_y: None
             adaptive_height: True
             height: self.minimum_height
 
 
 
-        ContentBoxH:        #Entry for the dimensions and rates
+            #_________________________________________________________________xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        ContentBoxV:
+            id: dimensions_container
+            spacing: dp(2)
             adaptive_height: True
-            height: self.minimum_height
+            name: "dimensions_container"
+            #_________________________________________________________________xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-            ContentField:
-                id: item_number
-                text: f"{root.section_number}.{root.item_number}"  # Shows 1-based numbering
-                #input_filter: "float"
-                readonly: True
-                font_size: "12sp"
-                size_hint_x: 0.08
-                MDTextFieldHintText:
-                    text: "SN"
-
-            ContentField:
-                id: item_description
-                size_hint_x: 0.25
-                MDTextFieldHintText:
-                    text: "Description"
-
-
-            ContentField:
-                id: unit
-                size_hint_x: 0.05
-                height: dp(40)
-                MDTextFieldHintText:
-                    text: "Unit"
-
-            ContentField:
-                id: rate
-                name: "item_rate"
-                input_filter: "float"
-                font_size: "12sp"
-                size_hint_x: 0.12
-                on_text: root.calculate_quantity()
-                MDTextFieldHintText:
-                    text: "Rate"
-
-            ContentField:
-                id: numbers
-                input_filter: "float"
-                size_hint_x: 0.08
-                on_text: root.calculate_quantity()
-                MDTextFieldHintText:
-                    text: "Numbers"
-
-
-            ContentField:
-                id: length
-                input_filter: "float"
-                size_hint_x: 0.1
-                on_text: root.calculate_quantity()
-                MDTextFieldHintText:
-                    text: "Length"
-
-
-            ContentField:
-                id: breadth
-                input_filter: "float"
-                size_hint_x: 0.1
-                on_text: root.calculate_quantity()
-                MDTextFieldHintText:
-                    text: "Breadth"
-
-
-            ContentField:
-                id: height
-                input_filter: "float"
-                size_hint_x: 0.1
-                on_text: root.calculate_quantity()
-                MDTextFieldHintText:
-                    text: "Height"
-
-
-            ContentField:
-                id: quantity
-                input_filter: "float"
-                size_hint_x: 0.12
-                readonly: True
-                on_touch_down:
-                    if self.collide_point(*args[1].pos): \
-                    root.open_factor_dialog(); \
-                    args[1].ungrab(self)
-                MDTextFieldHintText:
-                    text: "Quantity"
-
-
-            ContentField:
-                id: remarks
-                size_hint_x: 0.1
-                readonly: True
-                MDTextFieldHintText:
-                    text: "Remarks"
 
         MDBoxLayout:
             id: calc_info
@@ -690,8 +648,105 @@
                 theme_font_size: "Custom"   # 👈 tells KivyMD to allow custom size
                 font_size: "11sp"
 
+            #_________________________________________________________________xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 
+<SubItemRow@MDBoxLayout>:
+    section_number :1
+    item_number : 1
+    subitem_number :1
+    orientation: "horizontal"
+    size_hint_y: None
+    md_bg_color : app.theme_cls.backgroundColor
+    adaptive_height: True
+    height: self.minimum_height
+    name: "SubItemRow_base"
+    #on_kv_post: root.numberingCorrection()
+
+    ContentField:
+        id: item_number
+        text: f"{root.section_number}.{root.item_number}.{root.subitem_number}" #root.item_number if hasattr(root, "item_number") else ""
+        readonly: True
+        font_size: "12sp"
+        size_hint_x: 0.08
+        name: "item_number"
+        MDTextFieldHintText:
+            text: "SN"
+
+    ContentField:
+        id: item_description
+        size_hint_x: 0.25
+        MDTextFieldHintText:
+            text: "Description"
+
+    ContentField:
+        id: unit
+        size_hint_x: 0.05
+        height: dp(40)
+        MDTextFieldHintText:
+            text: "Unit"
+
+    ContentField:
+        id: rate
+        input_filter: "float"
+        name: "item_rate"
+        font_size: "12sp"
+        size_hint_x: 0.12
+        on_text: root.calculate_quantity() if hasattr(root, "calculate_quantity") else None
+        MDTextFieldHintText:
+            text: "Rate"
+
+    ContentField:
+        id: numbers
+        input_filter: "float"
+        size_hint_x: 0.08
+        on_text: root.calculate_quantity() if hasattr(root, "calculate_quantity") else None
+        MDTextFieldHintText:
+            text: "Numbers"
+
+    ContentField:
+        id: length
+        input_filter: "float"
+        size_hint_x: 0.1
+        on_text: root.calculate_quantity() if hasattr(root, "calculate_quantity") else None
+        MDTextFieldHintText:
+            text: "Length"
+
+    ContentField:
+        id: breadth
+        input_filter: "float"
+        size_hint_x: 0.1
+        on_text: root.calculate_quantity() if hasattr(root, "calculate_quantity") else None
+        MDTextFieldHintText:
+            text: "Breadth"
+
+    ContentField:
+        id: height
+        input_filter: "float"
+        size_hint_x: 0.1
+        on_text: root.calculate_quantity() if hasattr(root, "calculate_quantity") else None
+        MDTextFieldHintText:
+            text: "Height"
+
+    ContentField:
+        id: quantity
+        input_filter: "float"
+        size_hint_x: 0.12
+        readonly: True
+        on_touch_down:
+            if self.collide_point(*args[1].pos): \
+            root.open_factor_dialog() if hasattr(root, "open_factor_dialog") else None; \
+            args[1].ungrab(self)
+        MDTextFieldHintText:
+            text: "Quantity"
+
+    ContentField:
+        id: remarks
+        size_hint_x: 0.1
+        readonly: True
+        MDTextFieldHintText:
+            text: "Remarks"
+            #_________________________________________________________________xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 <Search_Results@MDBoxLayout>:
     id : Search_Results_

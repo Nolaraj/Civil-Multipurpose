@@ -1140,9 +1140,6 @@ class GUIDatabase:
             "Second Inner table": {}
         }
 
-
-
-
         # Build query based on filters
         conn = sqlite3.connect("estimation.db")
         c = conn.cursor()
@@ -1220,6 +1217,24 @@ class GUIDatabase:
 
         conn.close()
         return rows, appliedRateData
+
+    def delete_SubItemData_(self, item_number):
+        conn = sqlite3.connect("estimation.db")
+        c = conn.cursor()
+
+        c.execute("SELECT id FROM quantity_estimation WHERE item_number = ?", (item_number,))
+        existing = c.fetchone()
+        print("_____________________________________________________________")
+        print(existing, "existing", item_number)
+
+        if existing:
+            c.execute("DELETE FROM quantity_estimation WHERE item_number = ?", (item_number,))
+            conn.commit()
+
+        c.execute("SELECT id FROM quantity_estimation WHERE item_number = ?", (item_number,))
+        existing = c.fetchone()
+        print(existing, "existing")
+        conn.close()
 
     def save_GenInfo_QEstimation(self, ObjectsCache):
         def get_text(obj):
