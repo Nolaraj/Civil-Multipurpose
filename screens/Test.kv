@@ -652,6 +652,7 @@
 
 
 <SubItemRow@MDBoxLayout>:
+    id: SubItemRow_base
     section_number :1
     item_number : 1
     subitem_number :1
@@ -661,6 +662,7 @@
     adaptive_height: True
     height: self.minimum_height
     name: "SubItemRow_base"
+    name_index: f"{root.section_number}.{root.item_number}.{root.subitem_number}"
     #on_kv_post: root.numberingCorrection()
 
     ContentField:

@@ -223,35 +223,20 @@ class ItemQuantity_Details(BoxLayout):
         # Clock.schedule_once(delay_and_apply, 0.2)
     def delete_self(self):
         """Remove this SubItemRow from its parent container"""
-
         ItemNo = self.item_no
         itemNosKeys = objects_cache["Estimation_Data"]["Estimation_Sections"].keys()
         keys_list = list(itemNosKeys)
         matched_keys = [k for k in keys_list if k.startswith(f"{ItemNo}.")]
-        print(ItemNo, "ItemNo", keys_list,matched_keys )
 
         if len(matched_keys)<= 1:
             return
         latest = max(matched_keys, key=lambda k: list(map(int, k.split('.'))))
-        print(ItemNo, "ItemNo", keys_list,matched_keys, "latest", latest )
 
-        latestdim_ItemnoObj = objects_cache["Estimation_Data"]["Estimation_Sections"][f"{latest}"]["item_number"]
-        inspector = GUIInspector(root_widget=app.root)
-        SubItemRow_base = inspector.find_nearestparent_with_parent_(latestdim_ItemnoObj, "name", "SubItemRow_base")
-        print(inspector.get_widget_properties(SubItemRow_base))
-
+        SubItemRow_base = objects_cache["Estimation_Data"]["Estimation_Sections"][f"{latest}"]["SubItemRow_baseObj"]
 
         if SubItemRow_base:
-            print(latest, "latest")
-            print(inspector.get_widget_properties(SubItemRow_base))
-            SubItemRow_base.clear_widgets()
-            removed_value = objects_cache["Estimation_Data"]["Estimation_Sections"].pop(latest, None)
-
-            # 2️⃣ Remove the widget from container
             dimensions_container = SubItemRow_base.parent
-            print(latest, "latest")
-            print(inspector.get_widget_properties(dimensions_container))
-            print(inspector.get_widget_properties(SubItemRow_base.parent))
+            SubItemRow_base.clear_widgets()
 
             if SubItemRow_base and SubItemRow_base.parent:
                 SubItemRow_base.parent.remove_widget(SubItemRow_base)
@@ -262,11 +247,8 @@ class ItemQuantity_Details(BoxLayout):
                     widget.MDButtonText.text = f"Subitem {idx}"
 
             #Deletion of the data from the database
-            print(latest, "latest")
+            objects_cache["Estimation_Data"]["Estimation_Sections"].pop(latest, None)
             app.gui_DB.delete_SubItemData_(latest)
-
-            # print(objects_cache["Estimation_Data"]["Estimation_Sections"].keys())
-            # print(f"🗑️ Deleted SubItemRow")# {self.section_number}.{self.item_number}.{self.subitem_number}")
 
 class EstimationPart(BoxLayout):
     def __init__(self, **kwargs):
@@ -513,13 +495,19 @@ class SearchItem(BoxLayout):
         search_textOnlyObj = inspector.find_parent_with_child_(dynamic_searchResults_container_Obj, "name", "search_textOnly")
         return search_textOnlyObj
 
+    def sendAppRateTo_DB(self,item_number,  appliedRateData):
+        app.gui_DB.save_appliedRateAnalysis(item_number, appliedRateData)
+    def sendGenInfoQEst_toDB(self, objects_cache):
+        app.gui_DB.save_GenInfo_QEstimation(ObjectsCache=objects_cache)
+
+
+
     def ApplyRateAnalysis(self, search_item , fromViewedandApplied = [False, {}]):
         """
         search_item: the instance of SearchItem that was clicked
         """
         # Try to find the RecycleView safely
         item_number = ItemNo_Finder( search_item)
-
 
         rv = None
         parent = search_item.parent
@@ -596,19 +584,10 @@ class SearchItem(BoxLayout):
 
         self.sendGenInfoQEst_toDB(objects_cache)
 
-    def sendAppRateTo_DB(self,item_number,  appliedRateData):
-        app.gui_DB.save_appliedRateAnalysis(item_number, appliedRateData)
-
-    def sendGenInfoQEst_toDB(self, objects_cache):
-        app.gui_DB.save_GenInfo_QEstimation(ObjectsCache=objects_cache)
-
-
-
     def viewRateItem(self, search_item):
-        applied_text = search_item.text
         item_number = ItemNo_Finder(search_item)
-
         applied_text = search_item.text  # text from SearchItem
+
         appliedDataTitlePresentation = applied_text.split("_")
         NormsDBRef = int(appliedDataTitlePresentation[0])
 
@@ -1772,6 +1751,10 @@ class CivilEstimationApp(MDApp):
 
             else:
                 itemsObjects[items] = inspector.get_widget_by_id(items)
+
+        SubItemRow_baseObj = inspector.find_nearestparent_with_parent_(            SubItemObj, "name", "SubItemRow_base"        )
+        if SubItemRow_baseObj:
+            itemsObjects["SubItemRow_baseObj"] = SubItemRow_baseObj
 
         objects_cache["Estimation_Data"]["Estimation_Sections"][ItemNo] = itemsObjects
 

@@ -3,6 +3,7 @@ from sqlite3 import Error
 from typing import Union, Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 import json
+import os
 
 
 def DUDBC_RateWriter(databasepath):
@@ -979,6 +980,13 @@ def DUDBC_Extractor(searchmode, searchvalue, resourcetype = ""):
 
 class GUIDatabase:
     def __init__(self, db_name="estimation.db"):
+        if os.path.exists(db_name):
+            os.remove(db_name)
+
+        # Create a fresh database
+        self.conn = sqlite3.connect(db_name)
+        self.cursor = self.conn.cursor()
+        self.init_db()
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
         self.init_db()
@@ -1024,15 +1032,6 @@ class GUIDatabase:
         )
         """)
 
-        # # Sections table
-        # self.cursor.execute("""
-        # CREATE TABLE IF NOT EXISTS Quantity_Estimation (
-        #     id INTEGER PRIMARY KEY AUTOINCREMENT,
-        #     section_number INTEGER,
-        #     section_header TEXT
-        # )
-        # """)
-        # Items table
 
 
         # Search Results (applied items)
@@ -1054,6 +1053,96 @@ class GUIDatabase:
         )
         """)
         self.conn.commit()
+    def save_GenInfo_QEstimation(self, ObjectsCache):
+        def get_text(obj):
+            try:
+                return str(obj.text)
+            except Exception:
+                return str(obj)  # fallback if no .text attr
+
+        def safe_float(val, default=0.0):
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return default
+
+        # --- Save General Information ---
+        general_info = ObjectsCache["Estimation_Data"]["General_Information"]
+
+        general_values = (
+            get_text(general_info["office"]),
+            get_text(general_info["projectname"]),
+            get_text(general_info["officeCode"]),
+            get_text(general_info["projectlocation"]),
+            get_text(general_info["projectcompletiontime"]),
+            get_text(general_info["fiscalyear"]),
+            get_text(general_info["budgetsubheadingno"]),
+        )
+
+        # Clear existing rows and insert fresh one
+        self.cursor.execute("DELETE FROM General_Info")
+        self.cursor.execute("""
+            INSERT INTO General_Info (
+                office, projectname, officeCode, projectlocation,
+                projectcompletiontime, fiscalyear, budgetsubheadingno
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, general_values)
+
+        # --- Save Quantity Estimation ---
+        sections = ObjectsCache["Estimation_Data"]["Estimation_Sections"]
+
+        for _, section in sections.items():
+            item_number = get_text(section["item_number"])
+
+            values = (
+                str(section["EstimationPartSection_root"]),
+                get_text(section["estimation_Section_title"]),
+                get_text(section["items_section_Title"]),
+                get_text(section["dropdown"]),
+                get_text(section["search_keyword_input"]),
+                get_text(section["search_button"]),
+                get_text(section["dynamic_saerchResults_container"]),
+                item_number,
+                get_text(section["item_description"]),
+                get_text(section["unit"]),
+                safe_float(get_text(section["rate"])),
+                safe_float(get_text(section["numbers"])),
+                safe_float(get_text(section["length"])),
+                safe_float(get_text(section["breadth"])),
+                safe_float(get_text(section["height"])),
+                safe_float(get_text(section["quantity"])),
+                get_text(section["remarks"]),
+                str(section["calc_info"]),
+                safe_float(get_text(section["quantity_factor"])),
+                safe_float(get_text(section["Item_cost"])),
+            )
+
+            # Check if row exists with same item_number
+            self.cursor.execute("SELECT id FROM quantity_estimation WHERE item_number = ?", (item_number,))
+            existing = self.cursor.fetchone()
+
+            if existing:
+                # Delete old row
+                self.cursor.execute("DELETE FROM quantity_estimation WHERE item_number = ?", (item_number,))
+
+            # Insert new/updated row
+            self.cursor.execute("""
+                INSERT INTO quantity_estimation (
+                    EstimationPartSection_root, estimation_Section_title,
+                    items_section_Title, dropdown, search_keyword_input, search_button,
+                    dynamic_saerchResults_container, item_number, item_description,
+                    unit, rate, numbers, length, breadth, height, quantity,
+                    remarks, calc_info, quantity_factor, Item_cost
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, values)
+
+        self.conn.commit()
+    def close(self):
+        self.conn.close()
+
+
+
+#_________________-Check below
 
     def save_appliedRateAnalysis(self, item_number, appliedRateData):
         conn = sqlite3.connect("estimation.db")
@@ -1224,8 +1313,8 @@ class GUIDatabase:
 
         c.execute("SELECT id FROM quantity_estimation WHERE item_number = ?", (item_number,))
         existing = c.fetchone()
-        print("_____________________________________________________________")
-        print(existing, "existing", item_number)
+        # print("_____________________________________________________________")
+        # print(existing, "existing", item_number)
 
         if existing:
             c.execute("DELETE FROM quantity_estimation WHERE item_number = ?", (item_number,))
@@ -1233,128 +1322,5 @@ class GUIDatabase:
 
         c.execute("SELECT id FROM quantity_estimation WHERE item_number = ?", (item_number,))
         existing = c.fetchone()
-        print(existing, "existing")
+        # print(existing, "existing")
         conn.close()
-
-    def save_GenInfo_QEstimation(self, ObjectsCache):
-        def get_text(obj):
-            try:
-                return str(obj.text)
-            except Exception:
-                return str(obj)  # fallback if no .text attr
-
-        def safe_float(val, default=0.0):
-            try:
-                return float(val)
-            except (ValueError, TypeError):
-                return default
-
-        # --- Save General Information ---
-        general_info = ObjectsCache["Estimation_Data"]["General_Information"]
-
-        general_values = (
-            get_text(general_info["office"]),
-            get_text(general_info["projectname"]),
-            get_text(general_info["officeCode"]),
-            get_text(general_info["projectlocation"]),
-            get_text(general_info["projectcompletiontime"]),
-            get_text(general_info["fiscalyear"]),
-            get_text(general_info["budgetsubheadingno"]),
-        )
-
-        # Clear existing rows and insert fresh one
-        self.cursor.execute("DELETE FROM General_Info")
-        self.cursor.execute("""
-            INSERT INTO General_Info (
-                office, projectname, officeCode, projectlocation,
-                projectcompletiontime, fiscalyear, budgetsubheadingno
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, general_values)
-
-        # --- Save Quantity Estimation ---
-        sections = ObjectsCache["Estimation_Data"]["Estimation_Sections"]
-
-        for _, section in sections.items():
-            item_number = get_text(section["item_number"])
-
-            values = (
-                str(section["EstimationPartSection_root"]),
-                get_text(section["estimation_Section_title"]),
-                get_text(section["items_section_Title"]),
-                get_text(section["dropdown"]),
-                get_text(section["search_keyword_input"]),
-                get_text(section["search_button"]),
-                get_text(section["dynamic_saerchResults_container"]),
-                item_number,
-                get_text(section["item_description"]),
-                get_text(section["unit"]),
-                safe_float(get_text(section["rate"])),
-                safe_float(get_text(section["numbers"])),
-                safe_float(get_text(section["length"])),
-                safe_float(get_text(section["breadth"])),
-                safe_float(get_text(section["height"])),
-                safe_float(get_text(section["quantity"])),
-                get_text(section["remarks"]),
-                str(section["calc_info"]),
-                safe_float(get_text(section["quantity_factor"])),
-                safe_float(get_text(section["Item_cost"])),
-            )
-
-            # Check if row exists with same item_number
-            self.cursor.execute("SELECT id FROM quantity_estimation WHERE item_number = ?", (item_number,))
-            existing = self.cursor.fetchone()
-
-            if existing:
-                # Delete old row
-                self.cursor.execute("DELETE FROM quantity_estimation WHERE item_number = ?", (item_number,))
-
-            # Insert new/updated row
-            self.cursor.execute("""
-                INSERT INTO quantity_estimation (
-                    EstimationPartSection_root, estimation_Section_title,
-                    items_section_Title, dropdown, search_keyword_input, search_button,
-                    dynamic_saerchResults_container, item_number, item_description,
-                    unit, rate, numbers, length, breadth, height, quantity,
-                    remarks, calc_info, quantity_factor, Item_cost
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, values)
-
-        self.conn.commit()
-
-    def save_section(self, section_widget):
-        # Save section header
-        self.cursor.execute(
-            "INSERT INTO sections (section_number, section_header) VALUES (?, ?)",
-            (section_widget.section_number, section_widget.ids.section_header.text)
-        )
-        section_id = self.cursor.lastrowid
-
-        # Save items linked to this section
-        for item in section_widget.ids.dynamic_item_container.children:
-            self.save_item(section_id, item)
-
-        self.conn.commit()
-
-    def save_item(self, section_id, item_widget):
-        data = (
-            section_id,
-            item_widget.item_number,
-            item_widget.ids.item_description.text,
-            item_widget.ids.unit.text,
-            float(item_widget.ids.rate.text or 0),
-            float(item_widget.ids.numbers.text or 0),
-            float(item_widget.ids.length.text or 0),
-            float(item_widget.ids.breadth.text or 0),
-            float(item_widget.ids.height.text or 0),
-            float(item_widget.ids.quantity.text or 0),
-            item_widget.ids.remarks.text,
-        )
-        self.cursor.execute("""
-        INSERT INTO items
-        (section_id, item_number, description, unit, rate, numbers, length, breadth, height, quantity, remarks)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, data)
-
-    def close(self):
-        self.conn.close()
-
