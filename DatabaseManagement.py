@@ -1116,6 +1116,7 @@ class GUIDatabase:
                 safe_float(get_text(section["quantity_factor"])),
                 safe_float(get_text(section["Item_cost"])),
             )
+            # print(values)
 
             # Check if row exists with same item_number
             self.cursor.execute("SELECT id FROM quantity_estimation WHERE item_number = ?", (item_number,))

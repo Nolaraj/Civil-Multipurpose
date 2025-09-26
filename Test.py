@@ -72,7 +72,6 @@ objects_cache = {
 }
 # Global cache for all dynamically created estimation GUI objects
 
-
 def find_values_by_key(data, target_key):
     """
     Recursively find all values for a given key in a nested dict/list structure.
@@ -119,9 +118,9 @@ def DimObjsList_for_Specific_Item(inside_Object, reqDimAttribute = "rate"):
         if ItemNo == key_itemNo:
             ReqKeys.append(key)
     for key in ReqKeys:
+        # print(objects_cache['Estimation_Data']['Estimation_Sections'][key], "DEBIG")
         obj = objects_cache['Estimation_Data']['Estimation_Sections'][key][reqDimAttribute]
         ReqObjs.append((obj))
-    print(ReqKeys, ReqObjs)
     return ReqObjs
 class LoginScreen(Screen):
     pass
@@ -166,6 +165,14 @@ class ItemQuantity_Details(BoxLayout):
             pass
         if self.dialog:
             self.dialog.dismiss()
+    def apply_factor(self, factor_text):
+        try:
+            factor = float(factor_text)
+            self.calculate_quantity(factor=factor)
+        except ValueError:
+            pass
+        if self.dialog:
+            self.dialog.dismiss()
 
     def open_factor_dialog(self):
         dialog_content = Factory.FactorDialogContent()
@@ -198,12 +205,19 @@ class ItemQuantity_Details(BoxLayout):
         rows,  appliedRateData = app.gui_DB.load_appliedRateAnalysis(itemNo)
         if rows:
             Unitrate  = appliedRateData["Second Inner table"]["Unit Rate"][0]
-            print(Unitrate, "iam here")
-        """
-        Apply rate analysis or cached rate to the new SubItemRow
-        """
-        inspector = GUIInspector(root_widget=app.root)
-        print(inspector.get_widget_properties(new_subitem))
+            """
+            Apply rate analysis or cached rate to the new SubItemRow
+            """
+
+            itemNosKeys = objects_cache["Estimation_Data"]["Estimation_Sections"].keys()
+            keys_list = list(itemNosKeys)
+            matched_keys = [k for k in keys_list if k.startswith(f"{itemNo}.")]
+
+            for key in matched_keys:
+                rateObj = objects_cache["Estimation_Data"]["Estimation_Sections"][f"{key}"]["rate"]
+                rateObj.text = Unitrate
+
+        # print(inspector.get_widget_properties(new_subitem))
 
         def delay_and_apply():
             try:
@@ -219,7 +233,7 @@ class ItemQuantity_Details(BoxLayout):
             except Exception as e:
                 print(f"Error in setAppliedrateTonewSubitem: {e}")
 
-        delay_and_apply()
+        # delay_and_apply()
         # Clock.schedule_once(delay_and_apply, 0.2)
     def delete_self(self):
         """Remove this SubItemRow from its parent container"""
@@ -263,7 +277,6 @@ class EstimationPart(BoxLayout):
         ItemKeysList = [k.rsplit('.', 1)[0] for k in subItemskeys_list]
         unique_ItemKeysList = list(dict.fromkeys(ItemKeysList))
         matched_keys_ItemNo = [k for k in unique_ItemKeysList if k.startswith(f"{sectionNo}.")]
-        print(matched_keys_ItemNo, unique_ItemKeysList, ItemKeysList, subItemskeys_list, sectionNo, itemNosKeys)
         if len(matched_keys_ItemNo)<= 1:
             return
         latestItem = max(matched_keys_ItemNo, key=lambda k: list(map(int, k.split('.'))))
@@ -276,10 +289,8 @@ class EstimationPart(BoxLayout):
 
         if ItemRow_base:
             ItemRow_base.clear_widgets()
-            print(objects_cache["Estimation_Data"]["Estimation_Sections"].keys())
             for item in matched_keys_SubItemNo:
-                removed_value = objects_cache["Estimation_Data"]["Estimation_Sections"].pop(item, None)
-            print(objects_cache["Estimation_Data"]["Estimation_Sections"].keys(), "asdadsadas")
+                objects_cache["Estimation_Data"]["Estimation_Sections"].pop(item, None)
 
 
             # 2️⃣ Remove the widget from container
@@ -300,44 +311,6 @@ class EstimationPart(BoxLayout):
             print(objects_cache["Estimation_Data"]["Estimation_Sections"].keys())
             print(f"🗑️ Deleted SubItemRow")# {self.section_number}.{self.item_number}.{self.subitem_number}")
 
-
-
-
-
-        # ItemNo = self.item_no
-        # itemNosKeys = objects_cache["Estimation_Data"]["Estimation_Sections"].keys()
-        # keys_list = list(itemNosKeys)
-        #
-        # matched_keys_SubitemNO = [k for k in keys_list if k.startswith(f"{ItemNo}.")]
-        #
-        # if len(matched_keys)<= 1:
-        #     return
-        # latest = max(matched_keys, key=lambda k: list(map(int, k.split('.'))))
-        # latestdim_ItemnoObj = objects_cache["Estimation_Data"]["Estimation_Sections"][f"{latest}"]["item_number"]
-        # inspector = GUIInspector(root_widget=app.root)
-        # SubItemRow_base = inspector.find_nearestparent_with_parent_(latestdim_ItemnoObj, "name", "SubItemRow_base")
-        #
-        #
-        # if SubItemRow_base:
-        #     SubItemRow_base.clear_widgets()
-        #     removed_value = objects_cache["Estimation_Data"]["Estimation_Sections"].pop(latest, None)
-        #
-        #     # 2️⃣ Remove the widget from container
-        #     dimensions_container = SubItemRow_base.parent
-        #     if SubItemRow_base and SubItemRow_base.parent:
-        #         SubItemRow_base.parent.remove_widget(SubItemRow_base)
-        #     for idx, widget in enumerate(dimensions_container.children[::-1], 1):  # reverse order
-        #         widget.subitem_number = idx
-        #         # Update the UI label/text if you have one
-        #         if hasattr(widget, "MDButtonText"):
-        #             widget.MDButtonText.text = f"Subitem {idx}"
-        #
-        #     #Deletion of the data from the database
-        #     print(latest, "latest")
-        #     app.gui_DB.delete_SubItemData_(latest)
-        #
-        #     # print(objects_cache["Estimation_Data"]["Estimation_Sections"].keys())
-        #     # print(f"🗑️ Deleted SubItemRow")# {self.section_number}.{self.item_number}.{self.subitem_number}")
     def click_subitem(self):
         inspector = GUIInspector(root_widget=self)  # use self.root, not app.root
         widget = inspector.get_widget_by_id("NewSubItemButton")
@@ -541,13 +514,6 @@ class SearchItem(BoxLayout):
         rv.refresh_from_data()
         app.toast(f'Selected text {rv.data[0]["text"]}')
 
-        #Application to the rate field in gui
-        # objects = find_values_by_key(data, target_key) #Returns in list
-        # subItemsList = subItemsFinder(ItemNo=item_number)
-        # for items in subItemsList:
-        #     rateObjs =
-
-
         #Call for database handling
         applied_text = search_item.text  # text from SearchItem
         appliedDataTitlePresentation = applied_text.split("_")
@@ -561,9 +527,9 @@ class SearchItem(BoxLayout):
             # Apply the rate to the quantity estimation database rate section
             rate_Objs = DimObjsList_for_Specific_Item(search_item)
             for rate_Obj in rate_Objs:
-                rate_Obj.text = "{:.2f}".format(
-                    find_values_by_key(fromViewedandApplied[1], "Unit Rate")[0][0]
-                )
+                rateValue =  "{:.2f}".format(                    find_values_by_key(fromViewedandApplied[1], "Unit Rate")[0][0])
+                rate_Obj.text =rateValue
+
             rateDeviation = abs(original_unitRate[0] - float(fromViewedandApplied[1]["Second Inner table"]["Unit Rate"][0]))
             if rateDeviation > 1:
                 search_textOnlyObj.color = "#FF69B4" #(225, 22, 122, 1)
@@ -579,7 +545,8 @@ class SearchItem(BoxLayout):
             rate_Objs = DimObjsList_for_Specific_Item(search_item)
             # rate_Obj.text = "{:.2f}".format(find_values_by_key(appliedRateData, "Unit Rate")[0][0])
             for rate_Obj in rate_Objs:
-                rate_Obj.text = "{:.2f}".format(find_values_by_key(appliedRateData, "Unit Rate")[0][0])
+                rateValue =  "{:.2f}".format(find_values_by_key(appliedRateData, "Unit Rate")[0][0])
+                rate_Obj.text =rateValue
             search_textOnlyObj.color = app.theme_cls.primaryColor
 
         self.sendGenInfoQEst_toDB(objects_cache)
@@ -1159,7 +1126,6 @@ class GUIInspector:
 
 
 ################################Calcualtions for Quantity Estimation
-################################-------------------------------------------------------------------------------
 class MenuHeader(MDBoxLayout):
     '''Header for the dropdown menu.'''
 class CivilEstimationApp(MDApp):
@@ -1412,7 +1378,6 @@ class CivilEstimationApp(MDApp):
         # Load component KV files
         Builder.load_file("components/rv.kv")
         Builder.load_file("components/dialogs.kv")
-        print("Current background color:", self.theme_cls.backgroundColor)
 
         # inspector = GUIInspector(root_widget=app.root)
         # on_kv_post:
@@ -1677,23 +1642,6 @@ class CivilEstimationApp(MDApp):
 
 
 
-    def print_all_items(self):
-        inspector = GUIInspector(root_widget=app.root)
-        # inspector.print_all_widgets_with_ids()
-        parent = inspector.get_widget_by_id("dynamic_item_container")
-        # children_widgets = parent.children
-        # inspector.print_widget_properties_recursive("dynamic_item_container")
-        parent = inspector.get_widget_by_id("dynamic_item_container")
-        widget = inspector.get_widget_by_id("quantity")
-        proerties = inspector.get_widget_properties(widget)
-        for k, v in proerties.items():
-            print(k, v)
-
-        objects_cache = {
-            "Estimation_Data": {
-                "Estimation_Sections": []  # outer list of sections
-            }
-        }
 
 
     def cache_forNewSection(self):
@@ -1708,106 +1656,54 @@ class CivilEstimationApp(MDApp):
 
 
         # objects_cache["Estimation_Data"]["Estimation_Sections"].append([])  #Innermost list is the estsec1, est sec2...
-    def cache_forNewItem(self, SubitemObj):
+    def cache_forNewItem(self, ItemRowBase):
+        #Rule never go up for the widget object collection except for the estimation section data
         inspector = GUIInspector(root_widget=app.root)
-        SubItemObj = inspector.find_parent_with_child_(SubitemObj, "name", "item_number")
-        SubItemObjProps = inspector.get_widget_properties(SubItemObj)
-        SubItemObjValue = SubItemObjProps["text"]
-
-        #Itew Number is set as key for all
-        ItemNoObj = SubItemObj
-        ItemNo = SubItemObjValue
-
-
         itemsObjects = {}
-        EstimationPartSection_root = inspector.find_nearestparent_with_parent_(ItemNoObj, "name", "EstimationPartSection_root")
-        root_childrens =  inspector.get_widget_properties(EstimationPartSection_root)["children"]
-        # print(EstimationPartSection_root, "name", root_childrens)
 
-        for items in self.ItemsIDs:
-            if items == "dynamic_saerchResults_container":
-                for children in root_childrens:
-                    dynamicSearch_Parent = inspector.find_parent_with_child_(children, "text", "Dynamic Search")
-                    if dynamicSearch_Parent:
-                        itemsObjects[items] = dynamicSearch_Parent
-                        break
+        #Level 1 of the estimation gui data
+        estimationSectionBase = inspector.find_nearestparent_with_parent_(ItemRowBase, "name", "EstimationPartSection_root")
+        estChildrens = inspector.get_widget_properties(estimationSectionBase)["children"]
 
-            elif items == "EstimationPartSection_root":
-                itemsObjects[items] = EstimationPartSection_root
+        #Level 2 of the estimation gui data
+        itemSectionBase = ItemRowBase
+        itemChildrens = inspector.get_widget_properties(itemSectionBase)["children"]
 
-            elif items == "items_section_Title":
-                for children in root_childrens:
-                    dynamicSearch_Parent = inspector.find_parent_with_child_(children, "name", "item_number_label")
-                    if dynamicSearch_Parent:
-                        itemsObjects[items] = dynamicSearch_Parent
-                        break
+        #Level 3 of the estimation gui data
+        SubItemSectionBase = inspector.find_parent_with_child_( ItemRowBase, "name", "SubItemRow_base")
+        subItemChildrens = inspector.get_widget_properties(SubItemSectionBase)["children"]
+        item_numberField  =inspector.find_parent_with_child_(ItemRowBase, "name", "item_number")
+        item_numberFieldValue = inspector.get_widget_properties(item_numberField)["text"]
 
-            elif items == "estimation_Section_title":
-                for children in root_childrens:
-                    dynamicSearch_Parent = inspector.find_parent_with_child_(children, "name", "estimation_Section_title")
-                    if dynamicSearch_Parent:
-                        itemsObjects[items] = dynamicSearch_Parent
-                        break
+        def CachebasedOnParentChild():
+            for items in self.ItemsIDs:
+                if items == "dynamic_saerchResults_container":
+                    itemsObjects[items] = inspector.find_parent_with_child_(itemSectionBase, "text", "Dynamic Search")
+                elif items == "EstimationPartSection_root":
+                    itemsObjects[items] = estimationSectionBase
+                elif items == "items_section_Title":
+                    itemsObjects[items] = inspector.find_parent_with_child_(itemSectionBase, "name", "item_number_label")
+                elif items == "estimation_Section_title":
+                    itemsObjects[items] = inspector.find_parent_with_child_(estimationSectionBase, "name", "estimation_Section_title")
+                # elif items in ["unit",        "rate",        "numbers",        "length",        "breadth",        "height",        "quantity",        "remarks"]:
+                #
+                #     query = "item_" + items
+                #     obj = inspector.find_parent_with_child_(SubItemSectionBase, "name", query)
+                #     itemsObjects[items] = obj
+                else:
+                    try:
+                        IDs =       SubItemSectionBase.ids
+                        obj = IDs[items]
+                        itemsObjects[items] = obj
+                    except:
+                        itemsObjects[items] = inspector.get_widget_by_id(items)
+            if SubItemSectionBase:
+                itemsObjects["SubItemRow_baseObj"] = SubItemSectionBase
 
-            else:
-                itemsObjects[items] = inspector.get_widget_by_id(items)
+            objects_cache["Estimation_Data"]["Estimation_Sections"][item_numberFieldValue] = itemsObjects
 
-        SubItemRow_baseObj = inspector.find_nearestparent_with_parent_(            SubItemObj, "name", "SubItemRow_base"        )
-        if SubItemRow_baseObj:
-            itemsObjects["SubItemRow_baseObj"] = SubItemRow_baseObj
+        CachebasedOnParentChild()
 
-        objects_cache["Estimation_Data"]["Estimation_Sections"][ItemNo] = itemsObjects
-
-
-        print(objects_cache["Estimation_Data"]["Estimation_Sections"].keys(), "Here at the cache function")
-
-
-
-
-
-
-
-
-    # ======================= CACHE HANDLING =======================
-
-
-    def add_items_to_section_cache(self, section_dict, section_widget):
-        """
-        section_widget: The BoxLayout/container holding the items
-        """
-        items_list = []
-
-        # Assuming section_widget.ids.dynamic_item_container exists
-        for item_widget in section_widget.ids.dynamic_item_container.children:
-            item_dict = {"Item_Subsection": []}
-
-            # Cache each child/subsection of the item
-            for sub_widget in item_widget.children:
-                item_dict["Item_Subsection"].append(sub_widget)
-
-            items_list.append(item_dict)
-
-        section_dict["ItemsSection"].append(items_list)
-
-
-    def add_section_to_cache(self, section_widget):
-        """
-        Add a dynamically created section into objects_cache
-        """
-        section_dict = {"ItemsSection": []}  # items inside this section
-        objects_cache["Estimation_Data"]["Estimation_Sections"].append(section_dict)
-
-        # Add items inside this section
-        self.add_items_to_section_cache(section_dict, section_widget)
-
-    def clear_objects_cache(self):
-        """Reset the cache"""
-        objects_cache["Estimation_Data"]["Estimation_Sections"] = []
-
-    # Optional: Debug print
-    def print_objects_cache(self):
-        import pprint
-        pprint.pprint(objects_cache)
 class EditPopupContent(MDBoxLayout):
     def __init__(self, item_data, **kwargs):
         super().__init__(**kwargs)

@@ -398,7 +398,7 @@
 
 #_____________________________________________________________________________________________________________________________________________
 
-
+#Level 1 GUi data
 <EstimationPart@MDBoxLayout>:
     #Triggered after NEW SECTION click
     section_number: 1  # This will be set when creating the section
@@ -470,7 +470,7 @@
             MDButtonText:
                 text: "Delete Item"
 
-
+#level 2 GUI data
 <ItemQuantity_Details@MDBoxLayout>:
     item_number: 1
     section_number: 1   # 👈 new property
@@ -520,7 +520,6 @@
                 MDButtonText:
                     text: "Link to Norms' Rate"
 
-
             Spinner:
                 id: dropdown
                 text: "Select item"
@@ -558,8 +557,6 @@
                 MDButtonIcon:
                     icon: "magnify"
 
-
-            #_________________________________________________________________xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
             ContentButton:
                 id: NewSubItemButton
                 on_release:
@@ -585,7 +582,6 @@
                     icon: "cross"
                 MDButtonText:
                     text: "Delete"
-                            #_________________________________________________________________xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
         ContentBoxV:
             text: "Dynamic Search"
@@ -595,14 +591,11 @@
             height: self.minimum_height
 
 
-
-            #_________________________________________________________________xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         ContentBoxV:
             id: dimensions_container
             spacing: dp(2)
             adaptive_height: True
             name: "dimensions_container"
-            #_________________________________________________________________xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 
         MDBoxLayout:
@@ -648,9 +641,8 @@
                 theme_font_size: "Custom"   # 👈 tells KivyMD to allow custom size
                 font_size: "11sp"
 
-            #_________________________________________________________________xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-
+#Level 3 GUi data
 <SubItemRow@MDBoxLayout>:
     id: SubItemRow_base
     section_number :1
@@ -677,12 +669,14 @@
 
     ContentField:
         id: item_description
+        name: "item_description"
         size_hint_x: 0.25
         MDTextFieldHintText:
             text: "Description"
 
     ContentField:
         id: unit
+        name:"item_unit"
         size_hint_x: 0.05
         height: dp(40)
         MDTextFieldHintText:
@@ -700,6 +694,7 @@
 
     ContentField:
         id: numbers
+        name:"item_numbers"
         input_filter: "float"
         size_hint_x: 0.08
         on_text: root.calculate_quantity() if hasattr(root, "calculate_quantity") else None
@@ -708,6 +703,7 @@
 
     ContentField:
         id: length
+        name:"item_length"
         input_filter: "float"
         size_hint_x: 0.1
         on_text: root.calculate_quantity() if hasattr(root, "calculate_quantity") else None
@@ -716,6 +712,7 @@
 
     ContentField:
         id: breadth
+        name:"item_breadth"
         input_filter: "float"
         size_hint_x: 0.1
         on_text: root.calculate_quantity() if hasattr(root, "calculate_quantity") else None
@@ -724,6 +721,7 @@
 
     ContentField:
         id: height
+        name:"item_height"
         input_filter: "float"
         size_hint_x: 0.1
         on_text: root.calculate_quantity() if hasattr(root, "calculate_quantity") else None
@@ -732,6 +730,7 @@
 
     ContentField:
         id: quantity
+        name:"item_quantity"
         input_filter: "float"
         size_hint_x: 0.12
         readonly: True
@@ -744,6 +743,7 @@
 
     ContentField:
         id: remarks
+        name:"item_remarks"
         size_hint_x: 0.1
         readonly: True
         MDTextFieldHintText:
