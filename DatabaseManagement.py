@@ -1308,6 +1308,23 @@ class GUIDatabase:
         conn.close()
         return rows, appliedRateData
 
+    def ResetRate_QunatityEstimation(self):
+        conn = sqlite3.connect("estimation.db")
+        c = conn.cursor()
+
+        #Deletes the whole quantity_estimation table
+        c.execute("DELETE FROM quantity_estimation")  # remove all rows
+        c.execute("DELETE FROM sqlite_sequence WHERE name='quantity_estimation'")  # reset autoincrement
+        conn.commit()
+
+        #Deletes the whole quantity_estimation table
+        c.execute("DELETE FROM Rate_Analysis")  # remove all rows
+        c.execute("DELETE FROM sqlite_sequence WHERE name='Rate_Analysis'")  # reset autoincrement
+        conn.commit()
+
+        conn.close()
+
+
     def delete_SubItemData_(self, item_number):
         conn = sqlite3.connect("estimation.db")
         c = conn.cursor()

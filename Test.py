@@ -1297,9 +1297,6 @@ class CivilEstimationApp(MDApp):
             inspector.find_widgets_by_pattern(root_widget, pattern)
 
         return inspector, widgets_info
-
-
-    def restart_estimation(self):
         # # ==========================================================DEBUG and Inspector====================================================
         # inspector = GUIInspector(root_widget=app.root)
         # #Initialize it before searching for any widgets below
@@ -1330,6 +1327,8 @@ class CivilEstimationApp(MDApp):
         # ----------------------------------------------------------------------------  #----------------------------------------------------------------------------
         # Usage example in your restart_estimation function or anywhere you have est_screen:
         # sm = self.sm
+
+    def restart_estimation(self):
         main_screen = self.sm.get_screen("main_screen")
         est_screen = self.sm.get_screen("estimation_screen")
         container = main_screen.ids.get('dynamic_sections_container')
@@ -1340,6 +1339,15 @@ class CivilEstimationApp(MDApp):
             new_section = Factory.EstimationPart()
             new_section.section_number = 1
             container.add_widget(new_section)
+
+            #Clear database, Object cache dictionary (Only for the quantity estimation and Rate analysis table
+            objects_cache["Estimation_Data"]["Estimation_Sections"] = {            }
+            self.gui_DB.ResetRate_QunatityEstimation()
+
+
+
+
+
         else:
             print("dynamic_sections_container not found!")
 
