@@ -116,6 +116,11 @@
 
 
 
+
+
+
+
+
 <MainScreen>:
     id: main_screen
 #_____________________________________________________________________________________________________________________________________________main_screen
@@ -258,10 +263,12 @@
 
                                 ContentField:
                                     id: office
+                                    font_name: "MultiLangFont"
                                     MDTextFieldHintText:
                                         text: "Ministry / Department / Office"
                                 ContentField:
                                     id: projectname
+                                    font_name: "MultiLangFont"
                                     MDTextFieldHintText:
                                         text: "Project Name"
 
@@ -275,6 +282,7 @@
                                         text: "Office code"
                                 ContentField:
                                     id: projectlocation
+                                    font_name: "MultiLangFont"
                                     size_hint_x: 0.30
                                     MDTextFieldHintText:
                                         text: "Project Location"
@@ -297,6 +305,7 @@
                         ContentBoxV:
                             size_hint_y: None
                             adaptive_height: True
+                            spacing: 10
                             ContentBoxV:
                                 id: dynamic_sections_container
                                 adaptive_height: True
@@ -315,7 +324,7 @@
                                 #on_kv_post:
                                 #    self.dispatch("on_release")
                                 MDButtonIcon:
-                                    icon: "plus"
+                                    icon: "plus-thick"
                                     theme_icon_color: "Custom"
                                     icon_color: "green"
                                 MDButtonText:
@@ -445,30 +454,30 @@
             id: dynamic_item_container
             size_hint_y: None
             adaptive_height: True
+        ContentBoxH:
+            MDFabButton:
+                id: NewItemButton
+                on_release:
+                    new_item = Factory.ItemQuantity_Details()
+                    setattr(new_item, "item_number", len(dynamic_item_container.children) + 1)
+                    setattr(new_item, "section_number", root.section_number)
+                    dynamic_item_container.add_widget(new_item)
+                    root.click_subitem()
+                    #app.cache_forNewItem()
 
-        ContentButton:
-            id: NewItemButton
-            on_release:
-                new_item = Factory.ItemQuantity_Details()
-                setattr(new_item, "item_number", len(dynamic_item_container.children) + 1)
-                setattr(new_item, "section_number", root.section_number)
-                dynamic_item_container.add_widget(new_item)
-                root.click_subitem()
-                #app.cache_forNewItem()
-            #on_kv_post:
-            #    self.dispatch("on_release")
-            MDButtonIcon:
-                icon: "plus"
-            MDButtonText:
-                text: "New Item"
+                icon: "note-plus"
+                style: "small"
+                size: "80dp", "30dp"
 
-        ContentButton:
-            id: delete_Item
-            on_release: root.delete_self()
-            MDButtonIcon:
-                icon: "cross"
-            MDButtonText:
-                text: "Delete Item"
+            MDFabButton:
+                id: delete_Item
+                on_release: root.delete_self()
+
+                icon: "calendar-remove"
+                style: "small"
+                size: "80dp", "30dp"
+
+
 
 #level 2 GUI data
 <ItemQuantity_Details@MDBoxLayout>:
@@ -536,11 +545,12 @@
             ContentField:
                 id: search_keyword_input
                 font_name: "MultiLangFont"
-                text: "हार्डबोर्ड"
+                text: ""
                 on_text_validate: search_button.trigger_action(duration=0)  # triggers button press
                 MDTextFieldHintText:
                     text: "Keyword"
-            ContentButton:
+
+            MDFabButton:
                 id: search_button
                 on_release:
                     selected_category = dropdown.text
@@ -550,14 +560,11 @@
                     search_results = Factory.Search_Results()
                     dynamic_searchResults_container.add_widget(search_results)
                     search_results.ids.search_rv.data = [            {                "text": x,                "is_highlighted": False,                "index": i,                "font_name": "MultiLangFont",            }            for i, x in enumerate(app.SearchResults)        ]
+                icon: "magnify"
+                style: "small"
+                size: "50dp", "30dp"
 
-                    #dynamic_searchResults_container.add_widget(Factory.Search_Results())
-                    #dynamic_searchResults_container.children[0].ids.search_rv.data = [    {        "text": x,        "is_highlighted": False,        "index": i,        "font_name": "MultiLangFont",  }    for i, x in enumerate(app.SearchResults)]
-                    #dynamic_searchResults_container.children[0].ids.search_rv.data = [{"text": x, "is_highlighted": False, "index": i} for i, x in enumerate(app.SearchResults)]
-                MDButtonIcon:
-                    icon: "magnify"
-
-            ContentButton:
+            MDFabButton:
                 id: NewSubItemButton
                 on_release:
                     new_Subitem = Factory.SubItemRow()
@@ -568,20 +575,17 @@
                     app.cache_forNewItem(root)      #It also sets the rate to the new boxes if the rate analysis is previously applied
                     root.setAppliedrateTonewSubitem(new_Subitem)
 
-                #on_kv_post:
-                #    self.dispatch("on_release")
-                MDButtonIcon:
-                    icon: "plus"
-                MDButtonText:
-                    text: "New subtitle"
+                icon: "plus"
+                style: "small"
+                size: "50dp", "30dp"
 
-            ContentButton:
+            MDFabButton:
                 id: delete_SubItem
                 on_release: root.delete_self()
-                MDButtonIcon:
-                    icon: "cross"
-                MDButtonText:
-                    text: "Delete"
+                icon: "server-remove"
+                size: "50dp", "30dp"
+
+
 
         ContentBoxV:
             text: "Dynamic Search"

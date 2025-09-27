@@ -308,8 +308,7 @@ class EstimationPart(BoxLayout):
                 #Deletion ofthe data in the dimensionbox
                 app.gui_DB.delete_SubItemData_(value)
             #For the deletion of the data from the rate ana
-            print(objects_cache["Estimation_Data"]["Estimation_Sections"].keys())
-            print(f"🗑️ Deleted SubItemRow")# {self.section_number}.{self.item_number}.{self.subitem_number}")
+            # print(objects_cache["Estimation_Data"]["Estimation_Sections"].keys())
 
     def click_subitem(self):
         inspector = GUIInspector(root_widget=self)  # use self.root, not app.root

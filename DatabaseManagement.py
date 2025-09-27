@@ -4,7 +4,10 @@ from typing import Union, Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 import json
 import os
-
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, PatternFill
+from openpyxl.styles import Font, Alignment, Border, Side
+import openpyxl as op
 
 def DUDBC_RateWriter(databasepath):
 
@@ -1066,6 +1069,15 @@ class GUIDatabase:
             except (ValueError, TypeError):
                 return default
 
+        def derive_Number(val, default=0.0):
+            try:
+                val = val.split(":")
+                val = val[-1]
+                return float(val)
+            except (ValueError, TypeError):
+                return default
+
+
         # --- Save General Information ---
         general_info = ObjectsCache["Estimation_Data"]["General_Information"]
 
@@ -1113,8 +1125,8 @@ class GUIDatabase:
                 safe_float(get_text(section["quantity"])),
                 get_text(section["remarks"]),
                 str(section["calc_info"]),
-                safe_float(get_text(section["quantity_factor"])),
-                safe_float(get_text(section["Item_cost"])),
+                derive_Number(get_text(section["quantity_factor"])),
+                derive_Number(get_text(section["Item_cost"])),
             )
             # print(values)
 
@@ -1342,3 +1354,299 @@ class GUIDatabase:
         existing = c.fetchone()
         # print(existing, "existing")
         conn.close()
+
+
+
+
+
+
+class DB_Output:
+    def __init__(self, db_name="estimation.db"):
+        self.conn = sqlite3.connect(db_name)
+        self.cursor = self.conn.cursor()
+        self.excel_name = "output.xlsx"
+        self.sheetnames = ["Quantity Estimation", "Summary", "Abstract of Cost", "BOQ", "Cover" ]
+        self.headers = [            "S.No.", "Description of Works", "Unit", "No.",            "Length (m)", "Breadth (m)", "Height (m)", "Quantity", "Remarks"        ]
+        self.qEstDBtitles = [ 'EstimationPartSection_root', 'estimation_Section_title', 'items_section_Title', 'dropdown', 'search_keyword_input', 'search_button', 'dynamic_saerchResults_container', 'item_number', 'item_description', 'unit', 'rate', 'numbers', 'length', 'breadth', 'height', 'quantity', 'remarks', 'calc_info', 'quantity_factor', 'Item_cost']
+
+        #Styles
+        self.left_align = Alignment(horizontal="left", vertical="center")
+
+        self.right_align = Alignment(horizontal="right", vertical="center")
+        self.center_align = Alignment(horizontal="center", vertical="center")
+        self.grey_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
+        self.KMTitleFont = Font(name="Kalimati", size=14, bold=True)
+        self.KMbold_font = Font(name="Kalimati", bold=True, size=12)
+        self.Special_font = Font(name="Times New Roman", bold=True, size=12, underline="single")
+        self.TNRbold_font = Font(name="Times New Roman", bold=True, size=12)
+        self.TNRnormalText_font = Font(name="Times New Roman", bold=False, size=12)
+        self.thin_border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"),
+                                  bottom=Side(style="thin"))
+
+    def fetch_general_info(self):
+        """Fetch all data from General_Info table"""
+        self.cursor.execute("""
+            SELECT office, projectname, officeCode, projectlocation, 
+                   projectcompletiontime, fiscalyear, budgetsubheadingno
+            FROM General_Info
+        """)
+        return self.cursor.fetchall()
+
+    def fetch_quantityEstimation(self):
+        """Fetch all data from quantity_estimation table"""
+        self.cursor.execute(f"PRAGMA table_info({'quantity_estimation'})")
+        titles = [col[1] for col in self.cursor.fetchall()]
+
+        self.cursor.execute("""
+            SELECT EstimationPartSection_root, estimation_Section_title,
+            items_section_Title, dropdown, search_keyword_input, search_button,
+            dynamic_saerchResults_container, item_number, item_description,
+            unit, rate, numbers, length, breadth, height, quantity,
+            remarks, calc_info, quantity_factor, Item_cost
+            FROM quantity_estimation
+        """)
+        rows = self.cursor.fetchall()
+        return titles, rows
+    def SheetsTitle_Writing(self):
+        data = self.fetch_general_info()
+        if not data:
+            print("No data found in General_Info")
+            return
+        record = self.fetch_general_info()[0]
+
+        # Create workbook
+        wb = Workbook()
+
+        # Remove default sheet
+        default_sheet = wb.active
+        wb.remove(default_sheet)
+
+        # Create 5 sheets
+        for sheet in range(0, 5):
+            ws = wb.create_sheet(title=f"{self.sheetnames[sheet]}")
+
+            row = 1
+            office_full, projectname, officeCode, projectlocation, completion_time, fiscalyear, budgetsubheadingno = record
+            offices = office_full.split('/')  # Split the office hierarchy
+
+            # Styles
+
+
+            # Write office hierarchy
+            ws.merge_cells(f"A{row}:I{row}")
+            cell = ws.cell(row=row, column=1)
+            cell.value = f"नेपाल सरकार"           #Insert the gui entry to add the location of the office
+            cell.font = self.KMbold_font
+            cell.alignment = self.center_align
+            row += 1
+
+            for office in offices:
+                ws.merge_cells(f"A{row}:I{row}")
+                cell = ws[f"A{row}"]
+                # Assign value and style
+                cell.value = office
+                cell.font = self.KMTitleFont
+                cell.alignment = self.center_align
+                # ws[f"A{row}"].fill = grey_fill
+                row += 1
+
+            ws.merge_cells(f"A{row}:I{row}")
+            cell = ws.cell(row=row, column=1)
+            cell.value = f"{projectlocation}"           #Insert the gui entry to add the location of the office
+            cell.font = Font(name="Kalimati", bold=False, size=12)
+            cell.alignment = self.center_align
+            row += 1
+
+            row += 1
+            ws.merge_cells(f"A{row}:I{row}")
+            cell = ws.cell(row=row, column=1)
+            cell.value = f"योजनाको नामः {projectname}"
+            cell.font = self.KMbold_font
+            row += 1
+
+            # ws.merge_cells(f"A{row}:I{row}")
+            cell = ws.cell(row=row, column=1)
+            cell.value = f"योजना स्थलः {projectlocation}।"
+            cell.font = self.KMbold_font
+            #
+            # Fiscal year
+            ws.cell(row=row, column=8, value=f"F.Y.: {fiscalyear}")
+
+
+        wb.save(self.excel_name)
+        print(f"Data exported successfully to {self.excel_name}")
+        wb.close()
+
+    def QuantityEstSheet_Writing(self):
+        # Load the existing workbook
+        dbTitles, qEstRows = db_out.fetch_quantityEstimation()
+
+        wb = op.load_workbook(self.excel_name)  # 👈 change filename if needed
+        if "Quantity Estimation" in wb.sheetnames:
+            ws = wb["Quantity Estimation"]
+        else:
+            print("Sheet 'Quantity estimation' not found!")
+            exit()
+        row = ws.max_row + 1       #From here the writing needs to be started
+        def Titles_writing(row):
+            ws.merge_cells(f"A{row}:I{row}")
+            cell = ws.cell(row=row, column=1)
+            cell.value = f"Quantity Estimation {12}"
+            cell.font = self.Special_font
+            cell.alignment = self.center_align
+            row += 1
+
+            # Writing for the titles of estimation
+            for col, header in enumerate(self.headers, start=1):
+                cell = ws.cell(row=row, column=col, value=header)
+                cell.font = self.TNRbold_font
+                cell.alignment = self.center_align
+                cell.border = self.thin_border
+
+            # Optional: Adjust column widths for readability
+            column_widths = [8, 40, 10, 6, 12, 12, 12, 12, 20]
+            for i, width in enumerate(column_widths, start=1):
+                ws.column_dimensions[chr(64 + i)].width = width
+            return row
+        row = Titles_writing(row)
+        row +=1
+        def dataTrimming_():
+            trimmedData = []
+            trinFor = ['item_number','remarks'] #[start data, end daata]
+            startindex, endindex = self.qEstDBtitles.index(trinFor[0]),  self.qEstDBtitles.index(trinFor[1])
+            #The index extracted are the exact index(ie natural no numbering) as id from the database are with first row id and isnot returned to the call in this code
+            for line in qEstRows:
+                linedata = line[startindex: endindex+1]
+                trimmedData.append(linedata)
+
+            itemNo_List = set()
+            for line in qEstRows:
+                item_nos = line[startindex].split(".")
+                item_no = ".".join(item_nos[0:2])
+                itemNo_List.add(item_no)
+
+            return  sorted(itemNo_List, key=lambda x: [int(i) for i in x.split('.')]), trimmedData
+
+        def dataCategorization_():
+            itemsNo_index = self.qEstDBtitles.index("item_number")
+            categorizedData = {}
+
+            #Initialize the dictionary
+            for item in itemNo_List:
+                categorizedData[item] = []
+
+            for linerow in qEstRows:
+                item_no = ".".join(linerow[itemsNo_index].split(".")[0:2])
+                if item_no in itemNo_List:
+                    categorizedData[item_no].append(linerow)
+
+            return itemsNo_index, categorizedData
+
+        def dataBulking():
+            trimmedData = []
+            trinFor = ['item_number','remarks'] #[start data, end daata]
+            startindex, endindex = self.qEstDBtitles.index(trinFor[0]),  self.qEstDBtitles.index(trinFor[1])
+            # The index extracted are the exact index(ie natural no numbering) as id from the database are with first row id and isnot returned to the call in this code
+            bulkedData = {}
+
+            for item in itemNo_List:
+                bulkedData[item] = []
+
+
+            #Addition of preceeding and succeeding row on certain bulks
+            for item in itemNo_List:
+                datas = categorizedData[item]
+                itemstitle_index = self.qEstDBtitles.index("items_section_Title")
+                itemTitlevalue = datas[0][itemstitle_index]
+                datanos = len(categorizedData[item][0])
+                descriptiontitle_index =  self.qEstDBtitles.index("item_description")
+
+                preceedinglist = [None] * datanos
+                preceedinglist[descriptiontitle_index] = itemTitlevalue
+
+                succeedingList = [None] * datanos
+                succeedingList[descriptiontitle_index] = "Sub total"
+
+                itemsquantity_index = self.qEstDBtitles.index("quantity")
+                subtotalvalue_index = self.qEstDBtitles.index("quantity_factor")
+                subtotalvalue = datas[0][subtotalvalue_index]
+                succeedingList[itemsquantity_index] = subtotalvalue
+
+                bulkedData[item].append(preceedinglist)
+                for data in datas:
+                    bulkedData[item].append(data)
+                bulkedData[item].append(succeedingList)
+            return bulkedData
+
+        def data_segregation(bulkedData,needed_keys ):
+            segregated_dict = {}
+            for item_key, rows in bulkedData.items():
+                item_list = []
+                for row in rows:
+                    if isinstance(row, (list, tuple)):
+                        # full row dict (all fields)
+                        full_dict = dict(zip(self.qEstDBtitles, row))
+                        # extract only needed fields but keep in original full row as well
+                        filtered_dict = [ full_dict.get(k) for k in needed_keys]
+                        item_list.append(filtered_dict)
+                segregated_dict[item_key] = item_list
+
+            return segregated_dict
+
+        itemNo_List, trimmedData = dataTrimming_()
+        itemsNo_index, categorizedData = dataCategorization_()
+        bulkedData = dataBulking()
+
+
+        needed_keys = [            'item_number', 'item_description', 'unit',            'numbers', 'length', 'breadth', 'height',            'quantity', 'remarks'        ]
+        segregated_dict  = data_segregation(bulkedData, needed_keys)
+        print(segregated_dict)
+
+        # ✅ Write segregated_dict to Excel
+        for item_key in sorted(segregated_dict.keys(), key=lambda x: [int(i) for i in x.split('.')]):
+            rows_block = segregated_dict[item_key]
+            for i, inner_row in enumerate(rows_block):
+                for col, value in enumerate(inner_row, start=1):
+                    cell = ws.cell(row=row, column=col, value=value)
+
+                    # ✅ Alignment rules
+                    if col == 2:  # description column
+                        cell.alignment = self.left_align
+                    else:
+                        cell.alignment = self.center_align
+
+                    if i == len(rows_block) - 1:  # last row of block
+                        cell.alignment = self.right_align
+
+                    cell.border = self.thin_border
+                row += 1   # move to next row after writing one line
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        wb.save(self.excel_name)
+        print(f"Data exported successfully to {self.excel_name}")
+        wb.close()
+
+
+
+
+
+# Usage
+if __name__ == "__main__":
+    db_out = DB_Output()
+    db_out.SheetsTitle_Writing()
+    db_out.QuantityEstSheet_Writing()
+
