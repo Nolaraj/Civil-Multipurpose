@@ -8,6 +8,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill
 from openpyxl.styles import Font, Alignment, Border, Side
 import openpyxl as op
+from itertools import zip_longest
 
 def DUDBC_RateWriter(databasepath):
 
@@ -982,17 +983,18 @@ def DUDBC_Extractor(searchmode, searchvalue, resourcetype = ""):
 #DatabaseWrite
 
 class GUIDatabase:
-    def __init__(self, db_name="estimation.db"):
-        if os.path.exists(db_name):
-            os.remove(db_name)
+    def __init__(self, db_name="estimation.db", init_db=True):
+        if init_db:
+            if os.path.exists(db_name):
+                os.remove(db_name)
 
-        # Create a fresh database
-        self.conn = sqlite3.connect(db_name)
-        self.cursor = self.conn.cursor()
-        self.init_db()
-        self.conn = sqlite3.connect(db_name)
-        self.cursor = self.conn.cursor()
-        self.init_db()
+            # Create a fresh database
+            self.conn = sqlite3.connect(db_name)
+            self.cursor = self.conn.cursor()
+            self.init_db()
+            self.conn = sqlite3.connect(db_name)
+            self.cursor = self.conn.cursor()
+            self.init_db()
 
     def init_db(self):
         # General Info table
@@ -1366,14 +1368,20 @@ class DB_Output:
         self.cursor = self.conn.cursor()
         self.excel_name = "output.xlsx"
         self.sheetnames = ["Quantity Estimation", "Summary", "Abstract of Cost", "BOQ", "Cover" ]
+        self.sheetnamesTITLEMerger_Range = {"Quantity Estimation": ["A", "I", "H"],"Summary": ["A", "E", "D"],"Abstract of Cost": ["A", "G", "F"],"BOQ": ["A", "G", "F"],"Cover": ["A", "I", "H"]}
         self.headers = [            "S.No.", "Description of Works", "Unit", "No.",            "Length (m)", "Breadth (m)", "Height (m)", "Quantity", "Remarks"        ]
+        self.AOCheaders = [   "S.N.", "Description of Works", "Unit", "Quantity", "Rate", "Amount" , "Remarks"]
+        self.Summaryheaders = [   "S.N.", "Description of Works", "Quantity","Unit", "Remarks"]
+        self.BOQheaders = [   "S.N.", "Description of Works","Unit","Quantity",  "Bidders Rate NRs (In figure)", "Bidders Rate NRs (In words)", "Amount (In figure)"]
+
+
         self.qEstDBtitles = [ 'EstimationPartSection_root', 'estimation_Section_title', 'items_section_Title', 'dropdown', 'search_keyword_input', 'search_button', 'dynamic_saerchResults_container', 'item_number', 'item_description', 'unit', 'rate', 'numbers', 'length', 'breadth', 'height', 'quantity', 'remarks', 'calc_info', 'quantity_factor', 'Item_cost']
 
         #Styles
-        self.left_align = Alignment(horizontal="left", vertical="center")
+        self.left_align = Alignment(horizontal="left", vertical="center", wrap_text=True)
 
-        self.right_align = Alignment(horizontal="right", vertical="center")
-        self.center_align = Alignment(horizontal="center", vertical="center")
+        self.right_align = Alignment(horizontal="right", vertical="center", wrap_text=True)
+        self.center_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
         self.grey_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
         self.KMTitleFont = Font(name="Kalimati", size=14, bold=True)
         self.KMbold_font = Font(name="Kalimati", bold=True, size=12)
@@ -1382,6 +1390,8 @@ class DB_Output:
         self.TNRnormalText_font = Font(name="Times New Roman", bold=False, size=12)
         self.thin_border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"),
                                   bottom=Side(style="thin"))
+        self.bottom_border = Border(bottom=Side(style="thin"))
+        self.bottom_border_thick = Border(bottom=Side(style="thick"))
 
     def fetch_general_info(self):
         """Fetch all data from General_Info table"""
@@ -1397,14 +1407,7 @@ class DB_Output:
         self.cursor.execute(f"PRAGMA table_info({'quantity_estimation'})")
         titles = [col[1] for col in self.cursor.fetchall()]
 
-        self.cursor.execute("""
-            SELECT EstimationPartSection_root, estimation_Section_title,
-            items_section_Title, dropdown, search_keyword_input, search_button,
-            dynamic_saerchResults_container, item_number, item_description,
-            unit, rate, numbers, length, breadth, height, quantity,
-            remarks, calc_info, quantity_factor, Item_cost
-            FROM quantity_estimation
-        """)
+        self.cursor.execute("""            SELECT EstimationPartSection_root, estimation_Section_title,            items_section_Title, dropdown, search_keyword_input, search_button,            dynamic_saerchResults_container, item_number, item_description,            unit, rate, numbers, length, breadth, height, quantity,            remarks, calc_info, quantity_factor, Item_cost            FROM quantity_estimation        """)
         rows = self.cursor.fetchall()
         return titles, rows
     def SheetsTitle_Writing(self):
@@ -1425,15 +1428,15 @@ class DB_Output:
         for sheet in range(0, 5):
             ws = wb.create_sheet(title=f"{self.sheetnames[sheet]}")
 
+
+
             row = 1
             office_full, projectname, officeCode, projectlocation, completion_time, fiscalyear, budgetsubheadingno = record
             offices = office_full.split('/')  # Split the office hierarchy
 
-            # Styles
-
-
             # Write office hierarchy
-            ws.merge_cells(f"A{row}:I{row}")
+            mergerrows = f"{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][0]}{row}:{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][1]}{row}"
+            ws.merge_cells(mergerrows)
             cell = ws.cell(row=row, column=1)
             cell.value = f"नेपाल सरकार"           #Insert the gui entry to add the location of the office
             cell.font = self.KMbold_font
@@ -1441,7 +1444,8 @@ class DB_Output:
             row += 1
 
             for office in offices:
-                ws.merge_cells(f"A{row}:I{row}")
+                mergerrows = f"{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][0]}{row}:{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][1]}{row}"
+                ws.merge_cells(mergerrows)
                 cell = ws[f"A{row}"]
                 # Assign value and style
                 cell.value = office
@@ -1450,7 +1454,8 @@ class DB_Output:
                 # ws[f"A{row}"].fill = grey_fill
                 row += 1
 
-            ws.merge_cells(f"A{row}:I{row}")
+            mergerrows = f"{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][0]}{row}:{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][1]}{row}"
+            ws.merge_cells(mergerrows)
             cell = ws.cell(row=row, column=1)
             cell.value = f"{projectlocation}"           #Insert the gui entry to add the location of the office
             cell.font = Font(name="Kalimati", bold=False, size=12)
@@ -1458,7 +1463,8 @@ class DB_Output:
             row += 1
 
             row += 1
-            ws.merge_cells(f"A{row}:I{row}")
+            mergerrows = f"{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][0]}{row}:{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][1]}{row}"
+            ws.merge_cells(mergerrows)
             cell = ws.cell(row=row, column=1)
             cell.value = f"योजनाको नामः {projectname}"
             cell.font = self.KMbold_font
@@ -1470,7 +1476,10 @@ class DB_Output:
             cell.font = self.KMbold_font
             #
             # Fiscal year
-            ws.cell(row=row, column=8, value=f"F.Y.: {fiscalyear}")
+            mergerrows = f"{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][2]}{row}:{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][1]}{row}"
+            ws.merge_cells(mergerrows)
+            cell = ws[f"{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][2]}{row}"]
+            cell.value=f"F.Y.: {fiscalyear}"
 
 
         wb.save(self.excel_name)
@@ -1488,8 +1497,10 @@ class DB_Output:
             print("Sheet 'Quantity estimation' not found!")
             exit()
         row = ws.max_row + 1       #From here the writing needs to be started
+
         def Titles_writing(row):
-            ws.merge_cells(f"A{row}:I{row}")
+            mergerrows = f"{self.sheetnamesTITLEMerger_Range['Quantity Estimation'][0]}{row}:{self.sheetnamesTITLEMerger_Range['Quantity Estimation'][1]}{row}"
+            ws.merge_cells(mergerrows)
             cell = ws.cell(row=row, column=1)
             cell.value = f"Quantity Estimation {12}"
             cell.font = self.Special_font
@@ -1508,8 +1519,6 @@ class DB_Output:
             for i, width in enumerate(column_widths, start=1):
                 ws.column_dimensions[chr(64 + i)].width = width
             return row
-        row = Titles_writing(row)
-        row +=1
         def dataTrimming_():
             trimmedData = []
             trinFor = ['item_number','remarks'] #[start data, end daata]
@@ -1526,7 +1535,6 @@ class DB_Output:
                 itemNo_List.add(item_no)
 
             return  sorted(itemNo_List, key=lambda x: [int(i) for i in x.split('.')]), trimmedData
-
         def dataCategorization_():
             itemsNo_index = self.qEstDBtitles.index("item_number")
             categorizedData = {}
@@ -1541,7 +1549,6 @@ class DB_Output:
                     categorizedData[item_no].append(linerow)
 
             return itemsNo_index, categorizedData
-
         def dataBulking():
             trimmedData = []
             trinFor = ['item_number','remarks'] #[start data, end daata]
@@ -1577,7 +1584,6 @@ class DB_Output:
                     bulkedData[item].append(data)
                 bulkedData[item].append(succeedingList)
             return bulkedData
-
         def data_segregation(bulkedData,needed_keys ):
             segregated_dict = {}
             for item_key, rows in bulkedData.items():
@@ -1593,14 +1599,15 @@ class DB_Output:
 
             return segregated_dict
 
+
+        #___________________________________________________________________Calling and Writing
+        needed_keys = [            'item_number', 'item_description', 'unit',            'numbers', 'length', 'breadth', 'height',            'quantity', 'remarks'        ]
+        row = Titles_writing(row)
+        row +=1
         itemNo_List, trimmedData = dataTrimming_()
         itemsNo_index, categorizedData = dataCategorization_()
         bulkedData = dataBulking()
-
-
-        needed_keys = [            'item_number', 'item_description', 'unit',            'numbers', 'length', 'breadth', 'height',            'quantity', 'remarks'        ]
         segregated_dict  = data_segregation(bulkedData, needed_keys)
-        print(segregated_dict)
 
         # ✅ Write segregated_dict to Excel
         for item_key in sorted(segregated_dict.keys(), key=lambda x: [int(i) for i in x.split('.')]):
@@ -1622,24 +1629,389 @@ class DB_Output:
                 row += 1   # move to next row after writing one line
 
 
+        wb.save(self.excel_name)
+        print(f"Data written successfully to Quantity Estimation in {self.excel_name}")
+        wb.close()
+        return   itemNo_List, trimmedData, categorizedData,bulkedData, segregated_dict
+
+    def AOC_writing(self):
+        DescriptionTitle_index = 1  #Zero based indexing
+        QuantityTitle_index = 7  #Zero based indexing
+        Unit_Bulkindex = self.qEstDBtitles.index("unit")
+        Rate_Bulkindex= self.qEstDBtitles.index("rate")
+        wb = op.load_workbook(self.excel_name)  # 👈 change filename if needed
+        if "Abstract of Cost" in wb.sheetnames:
+            ws = wb["Abstract of Cost"]
+        else:
+            print("Sheet 'Quantity estimation' not found!")
+            exit()
+        row = ws.max_row + 1       #From here the writing needs to be started
 
 
+        itemNo_List, trimmedData, categorizedData, bulkedData, segregated_dict = self.QuantityEstSheet_Writing()
+        def Titles_writing(row):
+            mergerrows = f"{self.sheetnamesTITLEMerger_Range['Abstract of Cost'][0]}{row}:{self.sheetnamesTITLEMerger_Range['Abstract of Cost'][1]}{row}"
+            ws.merge_cells(mergerrows)
+            cell = ws.cell(row=row, column=1)
+            cell.value = f"Abstract of Cost {12}"
+            cell.font = self.Special_font
+            cell.alignment = self.center_align
+            row += 1
+
+            # Writing for the titles of estimation
+            for col, header in enumerate(self.AOCheaders, start=1):
+                cell = ws.cell(row=row, column=col, value=header)
+                cell.font = self.TNRbold_font
+                cell.alignment = self.center_align
+                cell.border = self.thin_border
+                cell.border = self.bottom_border_thick
 
 
+            # Optional: Adjust column widths for readability
+            column_widths = [8, 40, 12, 12, 12, 20]
+            for i, width in enumerate(column_widths, start=1):
+                ws.column_dimensions[chr(64 + i)].width = width
+            return row
+        def datasplitting(segregated_dict):
+            reduced_dict = {}
+            for key, rows in segregated_dict.items():
+                if rows:  # make sure not empty
+                    reduced_dict[key] = [rows[0], rows[-1]]
+            return reduced_dict
+        def item_unit():
+            item_unitDict = {}
+            item_rateDict = {}
+            for key, value in categorizedData.items():
+                item_unitDict[key] = value[0][Unit_Bulkindex]
+                item_rateDict[key] = value[0][Rate_Bulkindex]
 
 
+            return item_unitDict, item_rateDict
+        def AOC_Data(reduced_dict):
+            AOCList  = []
+
+            for key, value in reduced_dict.items():
+                AOCLine = []  ### "S.N.", "Description of Works", "Unit", "Quantity", "Rate", "Amount" , "Remarks"
+                quanitity = value[1][QuantityTitle_index]
+                rate = item_rateDict[key]
+
+                AOCLine.append(key)
+                AOCLine.append(value[0][DescriptionTitle_index])
+                AOCLine.append(item_unitDict[key])
+                AOCLine.append(quanitity)
+                AOCLine.append(rate)
+                def safeFloat(val, default = 0.0):
+                    try:
+                        return float(val)
+                    except:
+                        return default
+
+                amount = float(safeFloat(quanitity )* safeFloat(rate))
+                AOCLine.append(amount)
+                AOCLine.append(None)
+                AOCList.append(AOCLine)
 
 
+            return AOCList
+        def SumCCertiaIndex(aoc_list, index = -2):
+            return sum(row[-2] for row in aoc_list if isinstance(row[-2], (int, float)))
+
+        #___________________________________________________________________Calling and Writing
+        row = Titles_writing(row)
+        row+=1
+        reduced_dict = datasplitting(segregated_dict)
+        item_unitDict, item_rateDict = item_unit()
+        AOCList = AOC_Data(reduced_dict)
+        #Writing data to the Excel sheets
+        for i, inner_row in enumerate(AOCList):
+            for col, value in enumerate(inner_row, start=1):
+                cell = ws.cell(row=row, column=col, value=value)
+                cell.font = self.TNRnormalText_font
+
+                # ✅ Alignment rules
+                if col == 2:  # description column
+                    cell.alignment = self.left_align
+                else:
+                    cell.alignment = self.center_align
+
+                cell.border = self.thin_border
+            row += 1  # move to next row after writing one line
+
+        #___________________________________________________________________Processing and Writing
+
+        TotalCivilAmount = SumCCertiaIndex(AOCList, index=-2)
+        VATAmount = 0.13 * TotalCivilAmount
+        #Contingencies amount ___________Compute after confirmation
+        OfficeContigency = 0.04 * TotalCivilAmount
+        TotelProjectCost = TotalCivilAmount + VATAmount + OfficeContigency  #Total project cost including, contigencies, PS, Vat and Civil works
+
+        VerticalHeaders = ["Sub Total", "VAT Amount (13% of Sub Total)", "Contingency (4% of Sub Total)", "Total Project Cost (including VAT PS & Contingencies)"]
+        VerticalValues = [TotalCivilAmount, VATAmount, OfficeContigency, TotelProjectCost]
+
+        startrow =             row
+        for header, value in zip(VerticalHeaders, VerticalValues):
+            row = row
+            ws.merge_cells(f"A{row}:E{row}")
+            cellH = ws.cell(row=row, column=1, value=header) #Header column
+            cellV = ws.cell(row=row, column=6, value=value) #Header column
+
+            cellH.alignment = self.right_align
+            cellH.font = self.TNRbold_font
+            cellH.border = self.thin_border
+
+            cellV.alignment = self.right_align
+            cellV.font = self.TNRbold_font
+            cellV.border = self.thin_border
+
+            row+= 1
+
+        columnsNO = len(AOCList[0])
+        for Rowline in range(startrow, row):
+            for col in range(1, columnsNO + 1):
+                cell = ws.cell(row=Rowline, column=col)
+                cell.border = self.bottom_border_thick
+
+        wb.save(self.excel_name)
+        print(f"Data written successfully to Abstract of Cost in {self.excel_name}")
+        wb.close()
+
+    def SummaryWriting(self):
+        DescriptionTitle_index = 1  #Zero based indexing
+        QuantityTitle_index = 7  #Zero based indexing
+        Unit_Bulkindex = self.qEstDBtitles.index("unit")
+        Rate_Bulkindex= self.qEstDBtitles.index("rate")
+        wb = op.load_workbook(self.excel_name)  # 👈 change filename if needed
+        if "Summary" in wb.sheetnames:
+            ws = wb["Summary"]
+        else:
+            print("Sheet 'Summary' not found!")
+            exit()
+        row = ws.max_row + 1       #From here the writing needs to be started
+
+        def Titles_writing(row):
+            mergerrows = f"{self.sheetnamesTITLEMerger_Range['Summary'][0]}{row}:{self.sheetnamesTITLEMerger_Range['Summary'][1]}{row}"
+            ws.merge_cells(mergerrows)
+            cell = ws.cell(row=row, column=1)
+            cell.value = f"Abstract of Cost {12}"
+            cell.font = self.Special_font
+            cell.alignment = self.center_align
+            row += 1
+
+            # Writing for the titles of estimation
+            for col, header in enumerate(self.Summaryheaders, start=1):
+                cell = ws.cell(row=row, column=col, value=header)
+                cell.font = self.TNRbold_font
+                cell.alignment = self.center_align
+                cell.border = self.thin_border
+                cell.border = self.bottom_border_thick
 
 
+            # Optional: Adjust column widths for readability
+            column_widths = [8, 40, 12, 12, 12]
+            for i, width in enumerate(column_widths, start=1):
+                ws.column_dimensions[chr(64 + i)].width = width
+            return row
+        def datasplitting(segregated_dict):
+            reduced_dict = {}
+            for key, rows in segregated_dict.items():
+                if rows:  # make sure not empty
+                    reduced_dict[key] = [rows[0], rows[-1]]
+            return reduced_dict
+        def item_unit():
+            item_unitDict = {}
+            item_rateDict = {}
+            for key, value in categorizedData.items():
+                item_unitDict[key] = value[0][Unit_Bulkindex]
+                item_rateDict[key] = value[0][Rate_Bulkindex]
 
 
+            return item_unitDict, item_rateDict
+        def SummaryData(reduced_dict):
+            AOCList  = []
+
+            for key, value in reduced_dict.items():
+                AOCLine = []  ### "S.N.", "Description of Works", "Unit", "Quantity", "Rate", "Amount" , "Remarks"
+                quanitity = value[1][QuantityTitle_index]
+                rate = item_rateDict[key]
+
+                AOCLine.append(key)
+                AOCLine.append(value[0][DescriptionTitle_index])
+                AOCLine.append(quanitity)
+                AOCLine.append(item_unitDict[key])
+                AOCLine.append(None)
+
+                AOCList.append(AOCLine)
+            return AOCList
+
+        #___________________________________________________________________Calling and Writing
+        itemNo_List, trimmedData, categorizedData, bulkedData, segregated_dict = self.QuantityEstSheet_Writing()
+        row = Titles_writing(row)
+        row+=1
+        reduced_dict = datasplitting(segregated_dict)
+        item_unitDict, item_rateDict = item_unit()
+        SummaryList = SummaryData(reduced_dict)
+        #Writing data to the Excel sheets
+        for i, inner_row in enumerate(SummaryList):
+            for col, value in enumerate(inner_row, start=1):
+                cell = ws.cell(row=row, column=col, value=value)
+                cell.font = self.TNRnormalText_font
+                # ✅ Alignment rules
+                if col == 2:  # description column
+                    cell.alignment = self.left_align
+                else:
+                    cell.alignment = self.center_align
+
+                if col == 3:
+                    cell.font = self.TNRbold_font
+
+                cell.border = self.thin_border
+            row += 1  # move to next row after writing one line
 
 
         wb.save(self.excel_name)
-        print(f"Data exported successfully to {self.excel_name}")
+        print(f"Data written successfully to Summary in {self.excel_name}")
         wb.close()
 
+    def BOQ_Writing(self):
+        DescriptionTitle_index = 1  #Zero based indexing
+        QuantityTitle_index = 7  #Zero based indexing
+        Unit_Bulkindex = self.qEstDBtitles.index("unit")
+        Rate_Bulkindex= self.qEstDBtitles.index("rate")
+        wb = op.load_workbook(self.excel_name)  # 👈 change filename if needed
+        if "BOQ" in wb.sheetnames:
+            ws = wb["BOQ"]
+        else:
+            print("Sheet 'Summary' not found!")
+            exit()
+        row = ws.max_row + 1       #From here the writing needs to be started
+
+        def Titles_writing(row):
+            mergerrows = f"{self.sheetnamesTITLEMerger_Range['BOQ'][0]}{row}:{self.sheetnamesTITLEMerger_Range['BOQ'][1]}{row}"
+            ws.merge_cells(mergerrows)
+            cell = ws.cell(row=row, column=1)
+            cell.value = f"Bill of Quantity {12}"
+            cell.font = self.Special_font
+            cell.alignment = self.center_align
+            row += 1
+
+            # Writing for the titles of estimation
+            for col, header in enumerate(self.BOQheaders, start=1):
+                cell = ws.cell(row=row, column=col, value=header)
+                cell.font = self.TNRbold_font
+                cell.alignment = self.center_align
+                cell.border = self.thin_border
+                cell.border = self.bottom_border_thick
+
+            ws.row_dimensions[row].height = 30  # Set height for this row
+
+
+
+            # Optional: Adjust column widths for readability
+            column_widths = [8, 40, 10, 10, 15, 20, 12]
+            for i, width in enumerate(column_widths, start=1):
+                ws.column_dimensions[chr(64 + i)].width = width
+            return row
+        def datasplitting(segregated_dict):
+            reduced_dict = {}
+            for key, rows in segregated_dict.items():
+                if rows:  # make sure not empty
+                    reduced_dict[key] = [rows[0], rows[-1]]
+            return reduced_dict
+        def item_unit():
+            item_unitDict = {}
+            item_rateDict = {}
+            for key, value in categorizedData.items():
+                item_unitDict[key] = value[0][Unit_Bulkindex]
+                item_rateDict[key] = value[0][Rate_Bulkindex]
+
+
+            return item_unitDict, item_rateDict
+        def BOQData(reduced_dict):
+            AOCList  = []
+
+            for key, value in reduced_dict.items():
+                AOCLine = []  ### "S.N.", "Description of Works", "Unit", "Quantity", "Rate", "Amount" , "Remarks"
+                quanitity = value[1][QuantityTitle_index]
+                rate = item_rateDict[key]
+
+                AOCLine.append(key)
+                AOCLine.append(value[0][DescriptionTitle_index])
+                AOCLine.append(item_unitDict[key])
+                AOCLine.append(quanitity)
+                AOCLine.append(None)
+                AOCLine.append(None)
+                AOCLine.append(None)
+
+                AOCList.append(AOCLine)
+            return AOCList
+
+        #___________________________________________________________________Calling and Writing
+        itemNo_List, trimmedData, categorizedData, bulkedData, segregated_dict = self.QuantityEstSheet_Writing()
+        row = Titles_writing(row)
+        row+=1
+        reduced_dict = datasplitting(segregated_dict)
+        item_unitDict, item_rateDict = item_unit()
+        BOQList = BOQData(reduced_dict)
+        #Writing data to the Excel sheets
+        for i, inner_row in enumerate(BOQList):
+            for col, value in enumerate(inner_row, start=1):
+                cell = ws.cell(row=row, column=col, value=value)
+                cell.font = self.TNRnormalText_font
+                # ✅ Alignment rules
+                if col == 2:  # description column
+                    cell.alignment = self.left_align
+                else:
+                    cell.alignment = self.center_align
+
+                if col == 3:
+                    cell.font = self.TNRbold_font
+
+                cell.border = self.thin_border
+            row += 1  # move to next row after writing one line
+
+        #___________________________________________________________________ Processing and Writing
+        LeftVerticalHeaders = ["Contractors Firm:", "Seal:", "Proprietor's Name:", "Address:", "Contact No.:", "Signature: ", "Date:"]
+        RightVerticalHeaders = ["Total Amount (In figure):", "VAT (13%):", "Grand Total (In figure):", "Grand Total (In words):"]
+
+        startrow = row
+        row_heights = [25, 50, 25, 30, 20, 20, 20]
+        columnnos = len(self.BOQheaders)
+        for idx, (header, value) in enumerate(zip_longest(LeftVerticalHeaders, RightVerticalHeaders, fillvalue=""), start=1):
+            row = row
+            ws.merge_cells(f"A{row}:D{row}")
+            ws.merge_cells(f"E{row}:G{row}")
+
+            cellH = ws.cell(row=row, column=1, value=header) #Header column
+            cellV = ws.cell(row=row, column=5, value=value) #Header column
+
+            cellH.alignment = self.left_align
+            cellH.font = self.TNRbold_font
+
+            cellV.alignment = self.left_align
+            cellV.font = self.TNRbold_font
+
+            ws.row_dimensions[row].height = row_heights[idx-1]  # Set height for this row
+
+
+            row +=1
+        for row in range(startrow , row):
+            for col in range(1, columnnos + 1):
+                cell = ws.cell(row=row, column=col)
+
+                cell.border = self.bottom_border_thick
+
+        wb.save(self.excel_name)
+        print(f"Data written successfully to BOQ in {self.excel_name}")
+        wb.close()
+
+    def RateAnalysisDataWriting(self):
+        itemNo_List, trimmedData, categorizedData, bulkedData, segregated_dict = self.QuantityEstSheet_Writing()
+
+        RateAnalysisDict = {}
+        for items in itemNo_List:
+            rows, appliedRateData = db_GUI.load_appliedRateAnalysis(item_number=items)
+            RateAnalysisDict[items] = {"rows": rows,
+                                       "appliedRateData": appliedRateData}
 
 
 
@@ -1648,5 +2020,15 @@ class DB_Output:
 if __name__ == "__main__":
     db_out = DB_Output()
     db_out.SheetsTitle_Writing()
-    db_out.QuantityEstSheet_Writing()
+    # db_out.QuantityEstSheet_Writing()
+    # db_out.AOC_writing()
+    # db_out.SummaryWriting()
+    # db_out.BOQ_Writing()
+    db_GUI = GUIDatabase(init_db=False)
+    db_out.RateAnalysisDataWriting()
+
+
+
+
+
 
