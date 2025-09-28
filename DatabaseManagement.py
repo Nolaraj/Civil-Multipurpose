@@ -9,6 +9,7 @@ from openpyxl.styles import Font, Alignment, PatternFill
 from openpyxl.styles import Font, Alignment, Border, Side
 import openpyxl as op
 from itertools import zip_longest
+from openpyxl.styles import Border, Side, Color
 
 def DUDBC_RateWriter(databasepath):
 
@@ -867,6 +868,7 @@ class SuperDataExtractor:
 databasepath = "DUDBC_RateAnalysis.db"
 # DUDBC_RateWriter(databasepath)
 
+
 def DUDBC_Extractor(searchmode, searchvalue, resourcetype = ""):
     search_criteria= {}
     if searchmode == "title":
@@ -1367,8 +1369,8 @@ class DB_Output:
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
         self.excel_name = "output.xlsx"
-        self.sheetnames = ["Quantity Estimation", "Summary", "Abstract of Cost", "BOQ", "Cover" ]
-        self.sheetnamesTITLEMerger_Range = {"Quantity Estimation": ["A", "I", "H"],"Summary": ["A", "E", "D"],"Abstract of Cost": ["A", "G", "F"],"BOQ": ["A", "G", "F"],"Cover": ["A", "I", "H"]}
+        self.sheetnames = ["Cover" , "Quantity Estimation", "Summary", "Abstract of Cost", "BOQ", "Rate Analysis" ]
+        self.sheetnamesTITLEMerger_Range = {"Quantity Estimation": ["A", "I", "H"],"Summary": ["A", "E", "D"],"Abstract of Cost": ["A", "G", "F"],"BOQ": ["A", "G", "F"],"Cover": ["A", "I", "H"],"Rate Analysis": ["A", "H", "G"]}
         self.headers = [            "S.No.", "Description of Works", "Unit", "No.",            "Length (m)", "Breadth (m)", "Height (m)", "Quantity", "Remarks"        ]
         self.AOCheaders = [   "S.N.", "Description of Works", "Unit", "Quantity", "Rate", "Amount" , "Remarks"]
         self.Summaryheaders = [   "S.N.", "Description of Works", "Quantity","Unit", "Remarks"]
@@ -1385,14 +1387,28 @@ class DB_Output:
         self.grey_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
         self.KMTitleFont = Font(name="Kalimati", size=14, bold=True)
         self.KMbold_font = Font(name="Kalimati", bold=True, size=12)
+        self.KMNormal_font = Font(name="Kalimati", bold=False, size=11)
         self.Special_font = Font(name="Times New Roman", bold=True, size=12, underline="single")
         self.TNRbold_font = Font(name="Times New Roman", bold=True, size=12)
         self.TNRnormalText_font = Font(name="Times New Roman", bold=False, size=12)
         self.thin_border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"),
                                   bottom=Side(style="thin"))
+        self.thick_border = Border(left=Side(style="thick"), right=Side(style="thick"), top=Side(style="thick"),
+                                  bottom=Side(style="thick"))
         self.bottom_border = Border(bottom=Side(style="thin"))
         self.bottom_border_thick = Border(bottom=Side(style="thick"))
 
+        red_thick_side = Side(style="thick", color="FF0000")  # FF0000 is red in hex
+        self.thick_Redborder = Border(            left=red_thick_side,            right=red_thick_side,            top=red_thick_side,            bottom=red_thick_side)
+
+
+        #Top lines layout
+        #AB
+        #CD
+        self.borderA = Border(left=Side(style="thick"), top=Side(style="thick"),    bottom=Side(style="thin"))
+        self.borderB = Border(right=Side(style="thick"), top=Side(style="thick"),    bottom=Side(style="thin"))
+        self.borderC = Border(left=Side(style="thick"), top=Side(style="thin"),    bottom=Side(style="thick"))
+        self.borderD = Border(right=Side(style="thick"), top=Side(style="thin"),    bottom=Side(style="thick"))
     def fetch_general_info(self):
         """Fetch all data from General_Info table"""
         self.cursor.execute("""
@@ -1410,6 +1426,93 @@ class DB_Output:
         self.cursor.execute("""            SELECT EstimationPartSection_root, estimation_Section_title,            items_section_Title, dropdown, search_keyword_input, search_button,            dynamic_saerchResults_container, item_number, item_description,            unit, rate, numbers, length, breadth, height, quantity,            remarks, calc_info, quantity_factor, Item_cost            FROM quantity_estimation        """)
         rows = self.cursor.fetchall()
         return titles, rows
+
+    def dataTrimming_(self, qEstRows):
+        trimmedData = []
+        trinFor = ['item_number', 'remarks']  # [start data, end daata]
+        startindex, endindex = self.qEstDBtitles.index(trinFor[0]), self.qEstDBtitles.index(trinFor[1])
+        # The index extracted are the exact index(ie natural no numbering) as id from the database are with first row id and isnot returned to the call in this code
+        for line in qEstRows:
+            linedata = line[startindex: endindex + 1]
+            trimmedData.append(linedata)
+
+        itemNo_List = set()
+        for line in qEstRows:
+            item_nos = line[startindex].split(".")
+            item_no = ".".join(item_nos[0:2])
+            itemNo_List.add(item_no)
+
+        return sorted(itemNo_List, key=lambda x: [int(i) for i in x.split('.')]), trimmedData
+
+    def dataCategorization_(self, itemNo_List, qEstRows):
+        itemsNo_index = self.qEstDBtitles.index("item_number")
+        categorizedData = {}
+
+        # Initialize the dictionary
+        for item in itemNo_List:
+            categorizedData[item] = []
+
+        for linerow in qEstRows:
+            item_no = ".".join(linerow[itemsNo_index].split(".")[0:2])
+            if item_no in itemNo_List:
+                categorizedData[item_no].append(linerow)
+
+        return itemsNo_index, categorizedData
+
+    def dataBulking(self, itemNo_List, categorizedData):
+        trimmedData = []
+        trinFor = ['item_number', 'remarks']  # [start data, end daata]
+        startindex, endindex = self.qEstDBtitles.index(trinFor[0]), self.qEstDBtitles.index(trinFor[1])
+        # The index extracted are the exact index(ie natural no numbering) as id from the database are with first row id and isnot returned to the call in this code
+        bulkedData = {}
+
+        for item in itemNo_List:
+            bulkedData[item] = []
+
+        # Addition of preceeding and succeeding row on certain bulks
+        for item in itemNo_List:
+            datas = categorizedData[item]
+            itemstitle_index = self.qEstDBtitles.index("items_section_Title")
+            itemTitlevalue = datas[0][itemstitle_index]
+            datanos = len(categorizedData[item][0])
+            descriptiontitle_index = self.qEstDBtitles.index("item_description")
+
+            preceedinglist = [None] * datanos
+            preceedinglist[descriptiontitle_index] = itemTitlevalue
+
+            succeedingList = [None] * datanos
+            succeedingList[descriptiontitle_index] = "Sub total"
+
+            itemsquantity_index = self.qEstDBtitles.index("quantity")
+            subtotalvalue_index = self.qEstDBtitles.index("quantity_factor")
+            subtotalvalue = datas[0][subtotalvalue_index]
+            succeedingList[itemsquantity_index] = subtotalvalue
+
+            bulkedData[item].append(preceedinglist)
+            for data in datas:
+                bulkedData[item].append(data)
+            bulkedData[item].append(succeedingList)
+        return bulkedData
+
+    def data_segregation(self, bulkedData, needed_keys):
+        segregated_dict = {}
+        for item_key, rows in bulkedData.items():
+            item_list = []
+            for row in rows:
+                if isinstance(row, (list, tuple)):
+                    # full row dict (all fields)
+                    full_dict = dict(zip(self.qEstDBtitles, row))
+                    # extract only needed fields but keep in original full row as well
+                    filtered_dict = [full_dict.get(k) for k in needed_keys]
+                    item_list.append(filtered_dict)
+            segregated_dict[item_key] = item_list
+
+        return segregated_dict
+
+    def ProcessedData_Extractor(self):
+        pass
+
+#
     def SheetsTitle_Writing(self):
         data = self.fetch_general_info()
         if not data:
@@ -1425,7 +1528,7 @@ class DB_Output:
         wb.remove(default_sheet)
 
         # Create 5 sheets
-        for sheet in range(0, 5):
+        for sheet in range(0, 6):
             ws = wb.create_sheet(title=f"{self.sheetnames[sheet]}")
 
 
@@ -1470,7 +1573,7 @@ class DB_Output:
             cell.font = self.KMbold_font
             row += 1
 
-            # ws.merge_cells(f"A{row}:I{row}")
+            ws.merge_cells(f"A{row}:C{row}")
             cell = ws.cell(row=row, column=1)
             cell.value = f"योजना स्थलः {projectlocation}।"
             cell.font = self.KMbold_font
@@ -1519,114 +1622,37 @@ class DB_Output:
             for i, width in enumerate(column_widths, start=1):
                 ws.column_dimensions[chr(64 + i)].width = width
             return row
-        def dataTrimming_():
-            trimmedData = []
-            trinFor = ['item_number','remarks'] #[start data, end daata]
-            startindex, endindex = self.qEstDBtitles.index(trinFor[0]),  self.qEstDBtitles.index(trinFor[1])
-            #The index extracted are the exact index(ie natural no numbering) as id from the database are with first row id and isnot returned to the call in this code
-            for line in qEstRows:
-                linedata = line[startindex: endindex+1]
-                trimmedData.append(linedata)
 
-            itemNo_List = set()
-            for line in qEstRows:
-                item_nos = line[startindex].split(".")
-                item_no = ".".join(item_nos[0:2])
-                itemNo_List.add(item_no)
+        def QuantityEstimationWriting(segregated_dict, row):
+            # ✅ Write segregated_dict to Excel
+            for item_key in sorted(segregated_dict.keys(), key=lambda x: [int(i) for i in x.split('.')]):
+                rows_block = segregated_dict[item_key]
+                for i, inner_row in enumerate(rows_block):
+                    for col, value in enumerate(inner_row, start=1):
+                        cell = ws.cell(row=row, column=col, value=value)
 
-            return  sorted(itemNo_List, key=lambda x: [int(i) for i in x.split('.')]), trimmedData
-        def dataCategorization_():
-            itemsNo_index = self.qEstDBtitles.index("item_number")
-            categorizedData = {}
+                        # ✅ Alignment rules
+                        if col == 2:  # description column
+                            cell.alignment = self.left_align
+                        else:
+                            cell.alignment = self.center_align
 
-            #Initialize the dictionary
-            for item in itemNo_List:
-                categorizedData[item] = []
+                        if i == len(rows_block) - 1:  # last row of block
+                            cell.alignment = self.right_align
 
-            for linerow in qEstRows:
-                item_no = ".".join(linerow[itemsNo_index].split(".")[0:2])
-                if item_no in itemNo_List:
-                    categorizedData[item_no].append(linerow)
-
-            return itemsNo_index, categorizedData
-        def dataBulking():
-            trimmedData = []
-            trinFor = ['item_number','remarks'] #[start data, end daata]
-            startindex, endindex = self.qEstDBtitles.index(trinFor[0]),  self.qEstDBtitles.index(trinFor[1])
-            # The index extracted are the exact index(ie natural no numbering) as id from the database are with first row id and isnot returned to the call in this code
-            bulkedData = {}
-
-            for item in itemNo_List:
-                bulkedData[item] = []
-
-
-            #Addition of preceeding and succeeding row on certain bulks
-            for item in itemNo_List:
-                datas = categorizedData[item]
-                itemstitle_index = self.qEstDBtitles.index("items_section_Title")
-                itemTitlevalue = datas[0][itemstitle_index]
-                datanos = len(categorizedData[item][0])
-                descriptiontitle_index =  self.qEstDBtitles.index("item_description")
-
-                preceedinglist = [None] * datanos
-                preceedinglist[descriptiontitle_index] = itemTitlevalue
-
-                succeedingList = [None] * datanos
-                succeedingList[descriptiontitle_index] = "Sub total"
-
-                itemsquantity_index = self.qEstDBtitles.index("quantity")
-                subtotalvalue_index = self.qEstDBtitles.index("quantity_factor")
-                subtotalvalue = datas[0][subtotalvalue_index]
-                succeedingList[itemsquantity_index] = subtotalvalue
-
-                bulkedData[item].append(preceedinglist)
-                for data in datas:
-                    bulkedData[item].append(data)
-                bulkedData[item].append(succeedingList)
-            return bulkedData
-        def data_segregation(bulkedData,needed_keys ):
-            segregated_dict = {}
-            for item_key, rows in bulkedData.items():
-                item_list = []
-                for row in rows:
-                    if isinstance(row, (list, tuple)):
-                        # full row dict (all fields)
-                        full_dict = dict(zip(self.qEstDBtitles, row))
-                        # extract only needed fields but keep in original full row as well
-                        filtered_dict = [ full_dict.get(k) for k in needed_keys]
-                        item_list.append(filtered_dict)
-                segregated_dict[item_key] = item_list
-
-            return segregated_dict
+                        cell.border = self.thin_border
+                    row += 1  # move to next row after writing one line
 
 
         #___________________________________________________________________Calling and Writing
         needed_keys = [            'item_number', 'item_description', 'unit',            'numbers', 'length', 'breadth', 'height',            'quantity', 'remarks'        ]
         row = Titles_writing(row)
         row +=1
-        itemNo_List, trimmedData = dataTrimming_()
-        itemsNo_index, categorizedData = dataCategorization_()
-        bulkedData = dataBulking()
-        segregated_dict  = data_segregation(bulkedData, needed_keys)
-
-        # ✅ Write segregated_dict to Excel
-        for item_key in sorted(segregated_dict.keys(), key=lambda x: [int(i) for i in x.split('.')]):
-            rows_block = segregated_dict[item_key]
-            for i, inner_row in enumerate(rows_block):
-                for col, value in enumerate(inner_row, start=1):
-                    cell = ws.cell(row=row, column=col, value=value)
-
-                    # ✅ Alignment rules
-                    if col == 2:  # description column
-                        cell.alignment = self.left_align
-                    else:
-                        cell.alignment = self.center_align
-
-                    if i == len(rows_block) - 1:  # last row of block
-                        cell.alignment = self.right_align
-
-                    cell.border = self.thin_border
-                row += 1   # move to next row after writing one line
+        itemNo_List, trimmedData = self.dataTrimming_(qEstRows)
+        itemsNo_index, categorizedData = self.dataCategorization_(itemNo_List, qEstRows)
+        bulkedData = self.dataBulking(itemNo_List, categorizedData)
+        segregated_dict  = self.data_segregation(bulkedData, needed_keys)
+        QuantityEstimationWriting(segregated_dict, row)
 
 
         wb.save(self.excel_name)
@@ -2007,11 +2033,144 @@ class DB_Output:
     def RateAnalysisDataWriting(self):
         itemNo_List, trimmedData, categorizedData, bulkedData, segregated_dict = self.QuantityEstSheet_Writing()
 
+        wb = op.load_workbook(self.excel_name)  # 👈 change filename if needed
+        if "Rate Analysis" in wb.sheetnames:
+            ws = wb["Rate Analysis"]
+        else:
+            print("Rate Analysis' not found!")
+            exit()
+        row = ws.max_row + 1       #From here the writing needs to be started
+        datawritingStartRow = row
+
         RateAnalysisDict = {}
         for items in itemNo_List:
             rows, appliedRateData = db_GUI.load_appliedRateAnalysis(item_number=items)
             RateAnalysisDict[items] = {"rows": rows,
                                        "appliedRateData": appliedRateData}
+            IntegratedData = appliedRateData
+
+            def safeFloat(val, default=0.0):
+                try:
+                    return round(float(val), 2)
+                except:
+                    return default
+
+            def RateAnalysisData(IntegratedData):
+                # --- Write Top Section ---
+                Row1 = [IntegratedData['NormsDBRef'], IntegratedData['Title_Section']['Title'][0]]
+                Row2 = [IntegratedData['References']['Reference'][0], IntegratedData['Title_Section']['Note'][0]]
+                TitlesRow = [Row1, Row2]
+
+                # Header row
+                Tabledyn1 = (
+                        IntegratedData['First Inner table']['Title'] + IntegratedData['First Inner table']['Manpower'] +
+                        IntegratedData['First Inner table']['Materials'] + IntegratedData['First Inner table'][
+                            'Machines'] + IntegratedData['First Inner table']['Others'])
+                Tablerows1 = []
+                for row in Tabledyn1:
+                    row.insert(0, None)
+                    Tablerows1.append(row)
+
+                # --- Totals Section ---
+                columnnos = len(IntegratedData['First Inner table']['Title'][0])
+                Row1 = [None] * columnnos
+                Row1[columnnos - 3] = "वास्तविक दररेट"
+                Row1[columnnos - 1] = IntegratedData['Second Inner table']['Original Rate'][0]
+
+                Row2 = [None] * columnnos
+                Row2[columnnos - 3] = "१५% ठेकदार ओभरहेड"
+                Row2[columnnos - 1] = IntegratedData['Second Inner table']['Overhead'][0]
+                Row2[1] = IntegratedData['Second Inner table']['Others'][0]
+
+                Row3 = [None] * columnnos
+                Row3[columnnos - 3] = "जम्मा दररेट"
+                Row3[columnnos - 1] = IntegratedData['Second Inner table']['Total Rate'][0]
+                Row3[0] = "रु."
+                Row3[1] = safeFloat(IntegratedData['Second Inner table']['Unit Rate'][0])
+                Row3[2] = "पै."
+
+                TablesRow2 = [Row1, Row2, Row3]
+                TablesRows = (Tablerows1 + TablesRow2)
+                Tabledata = {"TitlesRow": TitlesRow, "TablesRows": TablesRows}
+
+                return Tabledata
+
+            def RateAnalsysisWriting(Tabledata, row):
+                for index, line in enumerate(Tabledata["TitlesRow"]):
+                    cell = ws.cell(row=row, column=1, value=line[0])
+                    cell.font = self.TNRbold_font
+                    cell.alignment = self.left_align
+                    if index==0:
+                        cell.border = self.borderA
+                    else:
+                        cell.border = self.borderC
+
+
+                    ws.merge_cells(f"B{row}:H{row}")
+                    cell = ws.cell(row=row, column=2, value=line[1])
+                    cell.alignment = self.center_align
+                    if index==0:
+                        cell.font = self.KMbold_font
+                        ws.row_dimensions[row].height = 40  # Set height for this row
+                        for col in range(2, 9):  # B=2, H=8
+                            cell = ws.cell(row=row, column=col, value=line[1] if col == 2 else None)
+                            cell.border = self.borderB
+                    else:
+                        cell.font = self.KMNormal_font
+                        for col in range(2, 9):  # B=2, H=8
+                            cell = ws.cell(row=row, column=col, value=line[1] if col == 2 else None)
+                            cell.border = self.borderD
+                    row += 1
+                def safeFloat(value):
+                    try:
+                        return round(float(value), 2)
+                    except:
+                        return value
+
+                totallines = len(Tabledata['TablesRows'])
+                for lineno, line in enumerate(Tabledata['TablesRows'], start=1):
+                    for col, value in enumerate(line, start=1):
+                        value = safeFloat(value)
+                        cell = ws.cell(row=row, column=col, value=value)
+                        cell.font = self.KMNormal_font
+                        cell.alignment = self.left_align
+
+                        # ✅ Alignment rules
+                        if lineno == 1:
+                            cell.font = self.KMbold_font
+
+                        if totallines - lineno < 3 :
+                            cell.border = self.bottom_border_thick
+
+                        else:
+                            cell.border = self.thin_border
+
+                        if totallines - lineno == 0:
+                            if col == 2: #Rate cell
+                                cell.border = self.thick_Redborder
+                                cell.font = self.TNRbold_font
+                                cell.alignment = self.center_align
+
+                    row += 1  # move to next row after writing one line
+
+                return row
+
+            Tabledata = RateAnalysisData(IntegratedData)
+            row = RateAnalsysisWriting(Tabledata, row)
+
+            row+= 2
+
+        #Data correction
+        for r in range(datawritingStartRow, row + 1):
+            cell = ws.cell(row=r, column=1)  # Column A
+            cell.alignment = self.right_align
+
+        column_widths = [5, 15, 20, 10, 8, 18, 12, 15]
+        for i, width in enumerate(column_widths, start=1):
+            ws.column_dimensions[chr(64 + i)].width = width
+
+        wb.save(self.excel_name)
+        print("Excel file created: RateAnalysis_Output.xlsx")
 
 
 
@@ -2020,10 +2179,10 @@ class DB_Output:
 if __name__ == "__main__":
     db_out = DB_Output()
     db_out.SheetsTitle_Writing()
-    # db_out.QuantityEstSheet_Writing()
-    # db_out.AOC_writing()
-    # db_out.SummaryWriting()
-    # db_out.BOQ_Writing()
+    db_out.QuantityEstSheet_Writing()
+    db_out.AOC_writing()
+    db_out.SummaryWriting()
+    db_out.BOQ_Writing()
     db_GUI = GUIDatabase(init_db=False)
     db_out.RateAnalysisDataWriting()
 
