@@ -228,6 +228,20 @@
                             padding: dp(5)
 
                             MDIconButton:
+                                id: save_gui
+                                icon: "content-save"
+                                user_font_size: "24sp"
+                                tooltip_text: "Save GUI State"
+                                on_release: app.open_save_dialog()
+
+                            MDIconButton:
+                                id: load_gui
+                                icon: "folder-open"
+                                user_font_size: "24sp"
+                                tooltip_text: "Load GUI State"
+                                on_release: app.open_load_dialog()
+
+                            MDIconButton:
                                 id: file_import
                                 icon: "file-import"
                                 user_font_size: "24sp"
@@ -238,6 +252,13 @@
                                 icon: "file-export"
                                 user_font_size: "24sp"
                                 on_release: settings_dialog.open()
+
+                            MDIconButton:
+                                id: ExcelOutput
+                                icon: "export"
+                                user_font_size: "24sp"
+                                tooltip_text: "Export to Excel"
+                                on_release: root.open_export_dialog()
 
                 ScrollView:
                     id: scroll_view
@@ -468,6 +489,7 @@
                 icon: "note-plus"
                 style: "small"
                 size: "80dp", "30dp"
+                pos_hint: {"center_y": 0.5}
 
             MDFabButton:
                 id: delete_Item
@@ -476,6 +498,8 @@
                 icon: "calendar-remove"
                 style: "small"
                 size: "80dp", "30dp"
+                pos_hint: {"center_y": 0.5}
+
 
 
 
@@ -563,6 +587,7 @@
                 icon: "magnify"
                 style: "small"
                 size: "50dp", "30dp"
+                pos_hint: {"center_y": 0.5}
 
             MDFabButton:
                 id: NewSubItemButton
@@ -578,12 +603,15 @@
                 icon: "plus"
                 style: "small"
                 size: "50dp", "30dp"
+                pos_hint: {"center_y": 0.5}
+
 
             MDFabButton:
                 id: delete_SubItem
                 on_release: root.delete_self()
                 icon: "server-remove"
                 size: "50dp", "30dp"
+                pos_hint: {"center_y": 0.5}
 
 
 

@@ -65,13 +65,20 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.button import Button
 from kivy.metrics import dp
 from kivy.app import App
+from kivymd.uix.selectioncontrol import MDCheckbox
+from datetime import datetime
+import json
 objects_cache = {
     "Estimation_Data": {
         "Estimation_Sections": {}  # outer list of sections
     }
 }
 # Global cache for all dynamically created estimation GUI objects
-
+class GUI_DB_Handle():
+    def sendGenInfoQEst_toDB(self):
+        app.gui_DB.save_GenInfo_QEstimation(ObjectsCache=objects_cache)
+    def sendAppRateTo_DB(self,item_number,  appliedRateData):
+        app.gui_DB.save_appliedRateAnalysis(item_number, appliedRateData)
 def find_values_by_key(data, target_key):
     """
     Recursively find all values for a given key in a nested dict/list structure.
@@ -106,7 +113,6 @@ def subItemsFinder(ItemNo):
     subItemsAll = list(objects_cache["Estimation_Data"]["Estimation_Sections"].keys())
     matched_keys = [k for k in subItemsAll if k.startswith(f"{ItemNo}.")]
     return matched_keys
-
 def DimObjsList_for_Specific_Item(inside_Object, reqDimAttribute = "rate"):
     ItemNo = str(ItemNo_Finder(inside_Object))
     AvailKeys = objects_cache['Estimation_Data']['Estimation_Sections'].keys()
@@ -141,6 +147,148 @@ class MainScreen(Screen):
             scroll_view.scroll_to(new_section)
         else:
             print("add_estimation_part: container or scroll_view not found in ids")
+
+    def open_export_dialog(self):
+        # Popup content layout
+        content_layout = BoxLayout(orientation="vertical", padding=10, spacing=10)
+        with content_layout.canvas.before:
+            Color(rgba=app.theme_cls.backgroundColor)  # KivyMD theme background
+            rect = Rectangle(size=content_layout.size, pos=content_layout.pos)
+
+        def update_rect(instance, value):
+            rect.pos = instance.pos
+            rect.size = instance.size
+
+        content_layout.bind(pos=update_rect, size=update_rect)
+
+        scroll = ScrollView(size_hint=(1, 1))
+        grid = GridLayout(
+            cols=1,
+            spacing=dp(10),  # vertical spacing between rows
+            padding=[0, 5, 0, 5],  # top/bottom padding
+            size_hint_y=None
+        )
+        grid.bind(minimum_height=grid.setter("height"))
+
+        def create_header_label(text, font_size=14, bold=True, size_hint_x=1):
+            return MDLabel(
+                text=text,
+                font_name="MultiLangFont",
+                bold=bold,
+                theme_text_color="Custom",
+                text_color=(0.8, 0.5, 0.7, 1),
+                size_hint_y=None,
+                height=dp(30),
+                size_hint_x=size_hint_x,
+            )
+
+        def create_row(key, widget):
+            row = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(40), spacing=10)
+            row.add_widget(create_header_label(key, size_hint_x=0.5))
+            widget.size_hint_x = 0.5
+            row.add_widget(widget)
+            return row
+
+        # Input fields
+        contingency_input = MDTextField(hint_text="Enter contingency value", mode="outlined",     size_hint_y= None, height = dp(35), text="4")
+        vat_input = MDTextField(hint_text="Enter VAT percentage", mode="outlined",     size_hint_y= None, height = dp(35), text="13")
+        physical_input = MDTextField(hint_text="Enter Physical Contingency %", mode="outlined",     size_hint_y= None, height = dp(35), text="10")
+        price_adj_input = MDTextField(hint_text="Enter Price Adjustment Contingency %", mode="outlined",     size_hint_y= None, height = dp(35), text="10")
+
+        # Checkboxes
+        pdf_box = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(40), spacing=10)
+        pdf_checkbox = MDCheckbox(size_hint=(None, None), size=(dp(30), dp(30)), pos_hint={"center_y": 0.5})
+        pdf_box.add_widget(pdf_checkbox)
+        pdf_box.add_widget(MDLabel(text="Dispatch PDF", valign="center"))
+
+        # Print row
+        print_box = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(40), spacing=10)
+        print_checkbox = MDCheckbox(size_hint=(None, None), size=(dp(30), dp(30)), pos_hint={"center_y": 0.5})
+        print_box.add_widget(print_checkbox)
+        print_box.add_widget(MDLabel(text="Print", valign="center"))
+
+        # --- Enforce auto-check rule ---
+        def on_print_active(instance, value):
+            if value:  # Print checked
+                pdf_checkbox.active = True
+                pdf_checkbox.disabled = True  # lock PDF
+            else:  # Print unchecked
+                pdf_checkbox.disabled = False  # unlock PDF
+
+        print_checkbox.bind(active=on_print_active)
+
+        # Add rows
+        grid.add_widget(create_row("Contingency (on %):", contingency_input))
+        grid.add_widget(create_row("VAT (on %):", vat_input))
+        grid.add_widget(create_row("Physical Contingency (on %):", physical_input))
+        grid.add_widget(create_row("Price Adjustment (on %):", price_adj_input))
+        grid.add_widget(pdf_box)
+        grid.add_widget(print_box)
+
+        scroll.add_widget(grid)
+        content_layout.add_widget(scroll)
+
+        # Footer buttons
+        footer = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(50), spacing=10)
+        cancel_btn = MDButton(            on_release=lambda x: popup.dismiss(),        )
+        cancel_btn.add_widget(MDButtonText(text="Cancel"))
+
+        accept_btn = MDButton(            on_release=lambda x: on_apply(),        )
+        accept_btn.add_widget(MDButtonText(text="Accept"))
+        footer.add_widget(Widget())
+
+        footer.add_widget(cancel_btn)
+        footer.add_widget(accept_btn)
+        content_layout.add_widget(footer)
+
+        # Create popup
+        popup = Popup(            title="Export Options",            content=content_layout,            size_hint=(0.8, 0.8),            auto_dismiss=False,        )
+
+        def on_apply():
+            valuesDict = {
+                "contingency": contingency_input.text,
+                "vat": vat_input.text,
+                "physical_contingency": physical_input.text,
+                "price_adjustment": price_adj_input.text,
+                "pdf": pdf_checkbox.active,
+                "print": print_checkbox.active,
+            }
+
+
+
+            try:
+                app.gui_DB.save_PrimaryKeys(valuesDict)
+                app.GUIHandle.sendGenInfoQEst_toDB()
+
+                db_out = DM.DB_Output()
+
+                db_out.SheetsTitle_Writing()
+                db_out.QuantityEstSheet_Writing()
+                db_out.AOC_writing()
+                db_out.SummaryWriting()
+                db_out.BOQ_Writing()
+                db_out.RateAnalysisDataWriting()
+
+                if valuesDict["pdf"]:
+                    db_out.excel_to_pdf_merge()
+                if valuesDict["print"]:
+                    db_out.PrintPDF()
+
+
+
+                popup.dismiss()
+            except Exception as e:
+                app.toast(f'"Error:", {e}')
+                print("Error:", e)
+                popup.dismiss()
+
+
+        popup.open()
+
+        def on_cancel(instance):
+            popup.dismiss()
+
+
 class EstimationScreen(Screen):
     pass
 class DesignScreen(Screen):
@@ -407,34 +555,6 @@ class SubItemRow(BoxLayout):   # or MDBoxLayout, depending on your base
 
 class SearchItem(BoxLayout):
 
-    # def open_editrate_dialog(self):
-    #     dialog_content = Factory.FactorDialogContent()
-    #     self.dialog = MDDialog(
-    #         title="Enter Multiplication Factor",
-    #         type="custom",
-    #         content_cls=dialog_content,
-    #         auto_dismiss=False,
-    #         size_hint=(0.85, None),
-    #         buttons=[
-    #             MDButton(
-    #                 style="text",  # replaces MDFlatButton
-    #                 text="CANCEL",
-    #                 markup=True,
-    #                 theme_text_color="Custom",
-    #                 text_color=app.theme_cls.primary_color,
-    #                 on_release=lambda x: self.dialog.dismiss()
-    #             ),
-    #             MDButton(
-    #                 style="elevated",  # replaces MDRaisedButton
-    #                 text="APPLY",
-    #                 markup=True,
-    #                 theme_text_color="Custom",
-    #                 text_color=self.theme_cls.primary_color,
-    #                 on_release=lambda x: self.apply_factor(dialog_content.ids.factor_input.text)
-    #             ),
-    #         ],
-    #     )
-    #     self.dialog.open()
     def toggle_highlight(self, index):
 
         self.is_highlighted = not self.is_highlighted
@@ -459,18 +579,11 @@ class SearchItem(BoxLayout):
                 label = self.ids.search_textOnly
                 Rectangle(pos=label.pos, size=label.size)
 
-
-
     def search_textOnlyFinder(self, search_item):
         inspector = GUIInspector(root_widget=app.root)
         dynamic_searchResults_container_Obj = inspector.find_nearestparent_with_parent_(search_item, "item_no")
         search_textOnlyObj = inspector.find_parent_with_child_(dynamic_searchResults_container_Obj, "name", "search_textOnly")
         return search_textOnlyObj
-
-    def sendAppRateTo_DB(self,item_number,  appliedRateData):
-        app.gui_DB.save_appliedRateAnalysis(item_number, appliedRateData)
-    def sendGenInfoQEst_toDB(self, objects_cache):
-        app.gui_DB.save_GenInfo_QEstimation(ObjectsCache=objects_cache)
 
 
 
@@ -521,12 +634,13 @@ class SearchItem(BoxLayout):
         search_textOnlyObj = self.search_textOnlyFinder(search_item)
 
         if fromViewedandApplied[0]:
-            self.sendAppRateTo_DB(item_number, fromViewedandApplied[1])
+            app.GUIHandle.sendAppRateTo_DB(item_number, fromViewedandApplied[1])
+            # self.sendAppRateTo_DB(item_number, fromViewedandApplied[1])
 
             # Apply the rate to the quantity estimation database rate section
             rate_Objs = DimObjsList_for_Specific_Item(search_item)
             for rate_Obj in rate_Objs:
-                rateValue =  "{:.2f}".format(                    find_values_by_key(fromViewedandApplied[1], "Unit Rate")[0][0])
+                rateValue =  "{:.2f}".format(  find_values_by_key(fromViewedandApplied[1], "Unit Rate")[0][0])
                 rate_Obj.text =rateValue
 
             rateDeviation = abs(original_unitRate[0] - float(fromViewedandApplied[1]["Second Inner table"]["Unit Rate"][0]))
@@ -538,7 +652,8 @@ class SearchItem(BoxLayout):
         else:
             appliedRateData = app.MappedData[NormsDBRef]
             appliedRateData["NormsDBRef"] = NormsDBRef
-            self.sendAppRateTo_DB(item_number, appliedRateData)
+            app.GUIHandle.sendAppRateTo_DB(item_number, appliedRateData)
+            # self.sendAppRateTo_DB(item_number, appliedRateData)
 
             # Apply the rate to the quantity estimation database rate section
             rate_Objs = DimObjsList_for_Specific_Item(search_item)
@@ -547,9 +662,8 @@ class SearchItem(BoxLayout):
                 rateValue =  "{:.2f}".format(find_values_by_key(appliedRateData, "Unit Rate")[0][0])
                 rate_Obj.text =rateValue
             search_textOnlyObj.color = app.theme_cls.primaryColor
-
-        self.sendGenInfoQEst_toDB(objects_cache)
-
+        app.GUIHandle.sendGenInfoQEst_toDB()
+        # self.sendGenInfoQEst_toDB(objects_cache)
     def viewRateItem(self, search_item):
         item_number = ItemNo_Finder(search_item)
         applied_text = search_item.text  # text from SearchItem
@@ -564,7 +678,8 @@ class SearchItem(BoxLayout):
         if len(rows)<1:
             appliedRateData = app.MappedData[NormsDBRef]
             appliedRateData["NormsDBRef"] = NormsDBRef
-            self.sendAppRateTo_DB(item_number, appliedRateData)
+            app.GUIHandle.sendAppRateTo_DB(item_number,appliedRateData)
+            # self.sendAppRateTo_DB(item_number, appliedRateData)
             rows, appliedRateData = app.gui_DB.load_appliedRateAnalysis(item_number=item_number)
 
 
@@ -826,6 +941,8 @@ class SearchItem(BoxLayout):
         )
         popup.open()
 
+class ExportDialogContent(MDBoxLayout):
+    pass
 
 
 class ContentField(MDTextField):
@@ -1182,6 +1299,7 @@ class CivilEstimationApp(MDApp):
 
         # 🔹 Create one database handler for the app
         self.gui_DB = DM.GUIDatabase()
+        self.GUIHandle = GUI_DB_Handle()
         return self.sm
 
     def on_start(self):
@@ -1643,14 +1761,6 @@ class CivilEstimationApp(MDApp):
         "Item_cost"
     ]
     GenInfo_IDs = ["office", "projectname", "budgetsubheadingno", "fiscalyear", "projectcompletiontime", "projectlocation", "officeCode"]
-
-
-
-
-
-
-
-
     def cache_forNewSection(self):
         inspector = GUIInspector(root_widget=app.root)
         # estimation_screen = inspector.get_widget_by_id("estimation_screen")
@@ -1710,6 +1820,409 @@ class CivilEstimationApp(MDApp):
             objects_cache["Estimation_Data"]["Estimation_Sections"][item_numberFieldValue] = itemsObjects
 
         CachebasedOnParentChild()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    #_______________________________________________________________________________File saving and retrieving
+    import json
+    from datetime import datetime
+    from kivy.clock import Clock
+
+    # Replace these functions in your CivilEstimationApp class
+
+    def save_gui_state(self, filename=None):
+        """Save the current GUI state as logical data structure"""
+        if not filename:
+            filename = f"gui_state_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+
+        try:
+            state = self._collect_gui_state()
+            with open(filename, "w", encoding="utf-8") as f:
+                json.dump(state, f, ensure_ascii=False, indent=2)
+            self.toast(f"Saved to {filename}")
+            return filename
+        except Exception as e:
+            print(f"Save error: {e}")
+            self.toast(f"Error saving: {e}")
+            return None
+
+    def load_gui_state(self, filename):
+        """Load GUI state from file"""
+        if not filename:
+            return False
+
+        try:
+            with open(filename, "r", encoding="utf-8") as f:
+                state = json.load(f)
+
+            # Clear current state
+            self.restart_estimation()
+
+            # Restore from data
+            Clock.schedule_once(lambda dt: self._restore_gui_state(state), 0.1)
+
+            self.toast(f"Loaded from {filename}")
+            return True
+        except Exception as e:
+            print(f"Load error: {e}")
+            self.toast(f"Error loading: {e}")
+            return False
+
+    def _collect_gui_state(self):
+        """Collect logical data from GUI"""
+        main_screen = self.sm.get_screen("main_screen")
+
+        # Collect general information
+        gen_info = {}
+        for field_id in self.GenInfo_IDs:
+            try:
+                widget = main_screen.ids.get(field_id)
+                if widget and hasattr(widget, 'text'):
+                    gen_info[field_id] = widget.text
+            except:
+                pass
+
+        # Collect estimation sections
+        container = main_screen.ids.get('dynamic_sections_container')
+        if not container:
+            return {"general_info": gen_info, "sections": [], "timestamp": datetime.now().isoformat()}
+
+        sections = []
+        for section_widget in reversed(container.children):  # Kivy stores reversed
+            section_data = self._collect_section(section_widget)
+            if section_data:
+                sections.append(section_data)
+
+        return {
+            "general_info": gen_info,
+            "sections": sections,
+            "timestamp": datetime.now().isoformat(),
+            "version": "1.0"
+        }
+
+    def _collect_section(self, section_widget):
+        """Collect data from one EstimationPart"""
+        try:
+            section_data = {
+                "section_number": getattr(section_widget, 'section_number', 1),
+                "section_title": section_widget.ids.section_header.text,
+                "items": []
+            }
+
+            # Find item container
+            item_container = section_widget.ids.get('dynamic_item_container')
+            if not item_container:
+                return section_data
+
+            for item_widget in reversed(item_container.children):
+                item_data = self._collect_item(item_widget)
+                if item_data:
+                    section_data["items"].append(item_data)
+
+            return section_data
+        except Exception as e:
+            print(f"Error collecting section: {e}")
+            return None
+
+    def _collect_item(self, item_widget):
+        """Collect data from one ItemQuantity_Details"""
+        try:
+            item_data = {
+                "item_number": getattr(item_widget, 'item_number', 1),
+                "section_number": getattr(item_widget, 'section_number', 1),
+                "item_no": getattr(item_widget, 'item_no', '1.1'),
+                "dropdown_text": item_widget.ids.dropdown.text,
+                "search_keyword": item_widget.ids.search_keyword_input.text,
+                "subitems": []
+            }
+
+            # Collect subitems
+            dims_container = item_widget.ids.get('dimensions_container')
+            if dims_container:
+                for subitem_widget in reversed(dims_container.children):
+                    subitem_data = self._collect_subitem(subitem_widget)
+                    if subitem_data:
+                        item_data["subitems"].append(subitem_data)
+
+            return item_data
+        except Exception as e:
+            print(f"Error collecting item: {e}")
+            return None
+
+    def _collect_subitem(self, subitem_widget):
+        """Collect data from one SubItemRow"""
+        try:
+            def get_text(widget, field_id):
+                try:
+                    field = widget.ids.get(field_id)
+                    return field.text if field and hasattr(field, 'text') else "-"
+                except:
+                    return "-"
+
+            return {
+                "section_number": getattr(subitem_widget, 'section_number', 1),
+                "item_number": getattr(subitem_widget, 'item_number', 1),
+                "subitem_number": getattr(subitem_widget, 'subitem_number', 1),
+                "item_description": get_text(subitem_widget, 'item_description'),
+                "unit": get_text(subitem_widget, 'unit'),
+                "rate": get_text(subitem_widget, 'rate'),
+                "numbers": get_text(subitem_widget, 'numbers'),
+                "length": get_text(subitem_widget, 'length'),
+                "breadth": get_text(subitem_widget, 'breadth'),
+                "height": get_text(subitem_widget, 'height'),
+                "quantity": get_text(subitem_widget, 'quantity'),
+                "remarks": get_text(subitem_widget, 'remarks')
+            }
+        except Exception as e:
+            print(f"Error collecting subitem: {e}")
+            return None
+
+    def _restore_gui_state(self, state):
+        """Restore GUI from logical data"""
+        from kivy.factory import Factory
+
+        main_screen = self.sm.get_screen("main_screen")
+
+        # Restore general information
+        gen_info = state.get("general_info", {})
+        for field_id, text_value in gen_info.items():
+            try:
+                widget = main_screen.ids.get(field_id)
+                if widget and hasattr(widget, 'text'):
+                    widget.text = text_value
+            except Exception as e:
+                print(f"Error restoring {field_id}: {e}")
+
+        # Restore sections
+        container = main_screen.ids.get('dynamic_sections_container')
+        scroll_view = main_screen.ids.get('scroll_view')
+
+        if not container:
+            print("Container not found!")
+            return False
+
+        container.clear_widgets()
+        objects_cache["Estimation_Data"]["Estimation_Sections"] = {}
+
+        sections = state.get("sections", [])
+        for section_data in sections:
+            self._restore_section(section_data, container, scroll_view)
+
+        # Update cache
+        self.cache_forNewSection()
+
+        return True
+
+    def _restore_section(self, section_data, container, scroll_view):
+        """Restore one EstimationPart section"""
+        from kivy.factory import Factory
+
+        try:
+            # Create section widget
+            new_section = Factory.EstimationPart()
+            new_section.section_number = section_data.get("section_number", 1)
+
+            # Set section title
+            if "section_title" in section_data:
+                new_section.ids.section_header.text = section_data["section_title"]
+
+            container.add_widget(new_section)
+
+            # Restore items
+            item_container = new_section.ids.get('dynamic_item_container')
+            if item_container:
+                for item_data in section_data.get("items", []):
+                    self._restore_item(item_data, item_container, new_section)
+
+        except Exception as e:
+            print(f"Error restoring section: {e}")
+
+    def _restore_item(self, item_data, item_container, section_widget):
+        """Restore one ItemQuantity_Details"""
+        from kivy.factory import Factory
+
+        try:
+            # Create item widget
+            new_item = Factory.ItemQuantity_Details()
+            new_item.item_number = item_data.get("item_number", 1)
+            new_item.section_number = item_data.get("section_number", 1)
+
+            item_container.add_widget(new_item)
+
+            # Set item properties
+            if "dropdown_text" in item_data:
+                new_item.ids.dropdown.text = item_data["dropdown_text"]
+            if "search_keyword" in item_data:
+                new_item.ids.search_keyword_input.text = item_data["search_keyword"]
+
+            # Restore subitems
+            dims_container = new_item.ids.get('dimensions_container')
+            if dims_container:
+                for subitem_data in item_data.get("subitems", []):
+                    self._restore_subitem(subitem_data, dims_container, new_item)
+
+        except Exception as e:
+            print(f"Error restoring item: {e}")
+
+    def _restore_subitem(self, subitem_data, dims_container, item_widget):
+        """Restore one SubItemRow"""
+        from kivy.factory import Factory
+        from kivy.clock import Clock
+
+        try:
+            # Create subitem widget
+            new_subitem = Factory.SubItemRow()
+            new_subitem.section_number = subitem_data.get("section_number", 1)
+            new_subitem.item_number = subitem_data.get("item_number", 1)
+            new_subitem.subitem_number = subitem_data.get("subitem_number", 1)
+
+            dims_container.add_widget(new_subitem)
+
+            # Cache the item BEFORE setting values
+            self.cache_forNewItem(item_widget)
+
+            # Set field values (delayed to ensure widgets are ready)
+            def set_values(dt):
+                try:
+                    fields = {
+                        'item_description': subitem_data.get('item_description', '-'),
+                        'unit': subitem_data.get('unit', '-'),
+                        'rate': subitem_data.get('rate', '-'),
+                        'numbers': subitem_data.get('numbers', '-'),
+                        'length': subitem_data.get('length', '-'),
+                        'breadth': subitem_data.get('breadth', '-'),
+                        'height': subitem_data.get('height', '-'),
+                        'remarks': subitem_data.get('remarks', '-')
+                    }
+
+                    for field_id, value in fields.items():
+                        field = new_subitem.ids.get(field_id)
+                        if field and hasattr(field, 'text'):
+                            field.text = value
+
+                    # Trigger calculation after all values are set
+                    if hasattr(new_subitem, 'calculate_quantity'):
+                        Clock.schedule_once(lambda dt: new_subitem.calculate_quantity(), 0.1)
+
+                except Exception as e:
+                    print(f"Error setting subitem values: {e}")
+
+            Clock.schedule_once(set_values, 0.05)
+
+        except Exception as e:
+            print(f"Error restoring subitem: {e}")
+
+    def open_save_dialog(self):
+        """Open dialog for saving GUI state"""
+        content = BoxLayout(orientation="vertical", padding=10, spacing=10)
+
+        filename_input = MDTextField(
+            hint_text="Enter filename (without extension)",
+            text=f"gui_state_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            size_hint_y=None,
+            height=dp(40)
+        )
+
+        content.add_widget(filename_input)
+
+        def on_save(instance):
+            filename = filename_input.text.strip()
+            if not filename.endswith('.json'):
+                filename += '.json'
+            self.save_gui_state(filename)
+            popup.dismiss()
+
+        def on_cancel(instance):
+            popup.dismiss()
+
+        btn_layout = BoxLayout(size_hint_y=None, height=dp(50), spacing=10)
+        save_btn = MDButton(on_release=on_save)
+        save_btn.add_widget(MDButtonText(text="Save"))
+
+        # save_btn = MDButton(text="Save", on_release=on_save)
+        cancel_btn = MDButton(on_release=on_cancel)
+        cancel_btn.add_widget(MDButtonText(text="Cancel"))
+
+        # cancel_btn = MDButton(text="Cancel", on_release=on_cancel)
+        btn_layout.add_widget(save_btn)
+        btn_layout.add_widget(cancel_btn)
+
+        content.add_widget(btn_layout)
+
+        popup = Popup(
+            title="Save GUI State",
+            content=content,
+            size_hint=(0.6, 0.4)
+        )
+        popup.open()
+
+    def open_load_dialog(self):
+        """Open dialog for loading GUI state"""
+        # For simplicity, using a fixed filename - you can enhance this with file browser
+        content = BoxLayout(orientation="vertical", padding=10, spacing=10)
+
+        filename_input = MDTextField(
+            hint_text="Enter filename to load",
+            size_hint_y=None,
+            height=dp(40)
+        )
+
+        content.add_widget(filename_input)
+
+        def on_load(instance):
+            filename = filename_input.text.strip()
+            if filename:
+                self.load_gui_state(filename)
+            popup.dismiss()
+
+        def on_cancel(instance):
+            popup.dismiss()
+
+        btn_layout = BoxLayout(size_hint_y=None, height=dp(50), spacing=10)
+        # load_btn = MDButton(text="Load", on_release=on_load)
+        load_btn = MDButton(on_release=on_load)
+        load_btn.add_widget(MDButtonText(text="Load"))
+        cancel_btn = MDButton(on_release=on_cancel)
+        cancel_btn.add_widget(MDButtonText(text="Cancel"))
+
+
+        # cancel_btn = MDButton(text="Cancel", on_release=on_cancel)
+        btn_layout.add_widget(load_btn)
+        btn_layout.add_widget(cancel_btn)
+
+        content.add_widget(btn_layout)
+
+        popup = Popup(
+            title="Load GUI State",
+            content=content,
+            size_hint=(0.6, 0.4)
+        )
+        popup.open()
+
 
 class EditPopupContent(MDBoxLayout):
     def __init__(self, item_data, **kwargs):

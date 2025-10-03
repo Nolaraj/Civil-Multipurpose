@@ -10,6 +10,15 @@ from openpyxl.styles import Font, Alignment, Border, Side
 import openpyxl as op
 from itertools import zip_longest
 from openpyxl.styles import Border, Side, Color
+from openpyxl.worksheet.pagebreak import Break
+from openpyxl.utils import column_index_from_string
+import xlwings as xw
+from PyPDF2 import PdfMerger
+import win32print
+import win32api
+import time
+import subprocess
+
 
 def DUDBC_RateWriter(databasepath):
 
@@ -985,6 +994,9 @@ def DUDBC_Extractor(searchmode, searchvalue, resourcetype = ""):
 #DatabaseWrite
 
 class GUIDatabase:
+    #For data modificaiton (ie adding of any unique key and values) then perfrom the following:
+    #1. initialize from the table creation
+    #2. Enforce the code for writing to that key
     def __init__(self, db_name="estimation.db", init_db=True):
         if init_db:
             if os.path.exists(db_name):
@@ -1057,6 +1069,17 @@ class GUIDatabase:
             rate REAL,
             amount REAL,
             amount_perHeading REAL
+        )
+        """)
+
+        #Create table for holding the primary factors of the data
+        self.cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Primary_keys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            contingency REAL,
+            vat REAL,
+            physical_contingency REAL,
+            priceadjustment_contingency REAL
         )
         """)
         self.conn.commit()
@@ -1154,6 +1177,30 @@ class GUIDatabase:
             """, values)
 
         self.conn.commit()
+
+    def save_PrimaryKeys(self, valuesDict):
+        def safe_float(val, default=0.0):
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return default
+
+
+
+        # --- Save General Information ---
+        primary_values = (safe_float(valuesDict["contingency"]),safe_float(valuesDict["vat"]),safe_float(valuesDict["physical_contingency"]),safe_float(valuesDict["price_adjustment"]), )
+
+        # Clear existing rows and insert fresh one
+        self.cursor.execute("DELETE FROM Primary_keys")
+        self.cursor.execute("""
+            INSERT INTO Primary_keys (
+                contingency, vat, physical_contingency, priceadjustment_contingency
+            ) VALUES (?, ?, ?, ?)
+        """, primary_values)
+
+
+        self.conn.commit()
+
     def close(self):
         self.conn.close()
 
@@ -1366,11 +1413,15 @@ class GUIDatabase:
 
 class DB_Output:
     def __init__(self, db_name="estimation.db"):
+        self.db_GUI = GUIDatabase(init_db=False)
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
         self.excel_name = "output.xlsx"
+        self.base_dir = os.path.dirname(os.path.abspath(self.excel_name))  # same folder as Excel file
+        self.pdf_path = os.path.join(self.base_dir, "CombinedBinder.pdf")  # full path
+
         self.sheetnames = ["Cover" , "Quantity Estimation", "Summary", "Abstract of Cost", "BOQ", "Rate Analysis" ]
-        self.sheetnamesTITLEMerger_Range = {"Quantity Estimation": ["A", "I", "H"],"Summary": ["A", "E", "D"],"Abstract of Cost": ["A", "G", "F"],"BOQ": ["A", "G", "F"],"Cover": ["A", "I", "H"],"Rate Analysis": ["A", "H", "G"]}
+        self.sheetnamesTITLEMerger_Range = {"Quantity Estimation": ["A", "I", "H", 9],"Summary": ["A", "E", "D", 9],"Abstract of Cost": ["A", "G", "F", 9],"BOQ": ["A", "G", "F", 9],"Cover": ["A", "I", "H", 9],"Rate Analysis": ["A", "H", "G", 7]}   #For every sheets they are ["start column", "end column", "FY writing column", Freezing row]
         self.headers = [            "S.No.", "Description of Works", "Unit", "No.",            "Length (m)", "Breadth (m)", "Height (m)", "Quantity", "Remarks"        ]
         self.AOCheaders = [   "S.N.", "Description of Works", "Unit", "Quantity", "Rate", "Amount" , "Remarks"]
         self.Summaryheaders = [   "S.N.", "Description of Works", "Quantity","Unit", "Remarks"]
@@ -1385,12 +1436,12 @@ class DB_Output:
         self.right_align = Alignment(horizontal="right", vertical="center", wrap_text=True)
         self.center_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
         self.grey_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
-        self.KMTitleFont = Font(name="Kalimati", size=14, bold=True)
-        self.KMbold_font = Font(name="Kalimati", bold=True, size=12)
-        self.KMNormal_font = Font(name="Kalimati", bold=False, size=11)
-        self.Special_font = Font(name="Times New Roman", bold=True, size=12, underline="single")
-        self.TNRbold_font = Font(name="Times New Roman", bold=True, size=12)
-        self.TNRnormalText_font = Font(name="Times New Roman", bold=False, size=12)
+        self.KMTitleFont = Font(name="Kalimati", size=12, bold=True)
+        self.KMbold_font = Font(name="Kalimati", bold=True, size=10)
+        self.KMNormal_font = Font(name="Kalimati", bold=False, size=9)
+        self.Special_font = Font(name="Times New Roman", bold=True, size=10, underline="single")
+        self.TNRbold_font = Font(name="Times New Roman", bold=True, size=10)
+        self.TNRnormalText_font = Font(name="Times New Roman", bold=False, size=10)
         self.thin_border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"),
                                   bottom=Side(style="thin"))
         self.thick_border = Border(left=Side(style="thick"), right=Side(style="thick"), top=Side(style="thick"),
@@ -1510,7 +1561,16 @@ class DB_Output:
         return segregated_dict
 
     def ProcessedData_Extractor(self):
-        pass
+        needed_keys = ['item_number', 'item_description', 'unit', 'numbers', 'length', 'breadth', 'height', 'quantity',
+                       'remarks']
+
+        dbTitles, qEstRows = self.fetch_quantityEstimation()
+        itemNo_List, trimmedData = self.dataTrimming_(qEstRows)
+        itemsNo_index, categorizedData = self.dataCategorization_(itemNo_List, qEstRows)
+        bulkedData = self.dataBulking(itemNo_List, categorizedData)
+        segregated_dict = self.data_segregation(bulkedData, needed_keys)
+
+        return itemNo_List, trimmedData, categorizedData,bulkedData, segregated_dict
 
 #
     def SheetsTitle_Writing(self):
@@ -1542,7 +1602,7 @@ class DB_Output:
             ws.merge_cells(mergerrows)
             cell = ws.cell(row=row, column=1)
             cell.value = f"नेपाल सरकार"           #Insert the gui entry to add the location of the office
-            cell.font = self.KMbold_font
+            cell.font = self.KMTitleFont
             cell.alignment = self.center_align
             row += 1
 
@@ -1561,7 +1621,7 @@ class DB_Output:
             ws.merge_cells(mergerrows)
             cell = ws.cell(row=row, column=1)
             cell.value = f"{projectlocation}"           #Insert the gui entry to add the location of the office
-            cell.font = Font(name="Kalimati", bold=False, size=12)
+            cell.font = Font(name="Kalimati", bold=False, size=10)
             cell.alignment = self.center_align
             row += 1
 
@@ -1591,7 +1651,6 @@ class DB_Output:
 
     def QuantityEstSheet_Writing(self):
         # Load the existing workbook
-        dbTitles, qEstRows = db_out.fetch_quantityEstimation()
 
         wb = op.load_workbook(self.excel_name)  # 👈 change filename if needed
         if "Quantity Estimation" in wb.sheetnames:
@@ -1618,7 +1677,7 @@ class DB_Output:
                 cell.border = self.thin_border
 
             # Optional: Adjust column widths for readability
-            column_widths = [8, 40, 10, 6, 12, 12, 12, 12, 20]
+            column_widths = [5, 30, 5, 4.5, 8, 9, 8, 8, 10]
             for i, width in enumerate(column_widths, start=1):
                 ws.column_dimensions[chr(64 + i)].width = width
             return row
@@ -1630,6 +1689,7 @@ class DB_Output:
                 for i, inner_row in enumerate(rows_block):
                     for col, value in enumerate(inner_row, start=1):
                         cell = ws.cell(row=row, column=col, value=value)
+                        cell.font = self.TNRnormalText_font
 
                         # ✅ Alignment rules
                         if col == 2:  # description column
@@ -1645,13 +1705,9 @@ class DB_Output:
 
 
         #___________________________________________________________________Calling and Writing
-        needed_keys = [            'item_number', 'item_description', 'unit',            'numbers', 'length', 'breadth', 'height',            'quantity', 'remarks'        ]
         row = Titles_writing(row)
         row +=1
-        itemNo_List, trimmedData = self.dataTrimming_(qEstRows)
-        itemsNo_index, categorizedData = self.dataCategorization_(itemNo_List, qEstRows)
-        bulkedData = self.dataBulking(itemNo_List, categorizedData)
-        segregated_dict  = self.data_segregation(bulkedData, needed_keys)
+        itemNo_List, trimmedData, categorizedData, bulkedData, segregated_dict = self.ProcessedData_Extractor()
         QuantityEstimationWriting(segregated_dict, row)
 
 
@@ -1674,7 +1730,7 @@ class DB_Output:
         row = ws.max_row + 1       #From here the writing needs to be started
 
 
-        itemNo_List, trimmedData, categorizedData, bulkedData, segregated_dict = self.QuantityEstSheet_Writing()
+        itemNo_List, trimmedData, categorizedData, bulkedData, segregated_dict = self.ProcessedData_Extractor()
         def Titles_writing(row):
             mergerrows = f"{self.sheetnamesTITLEMerger_Range['Abstract of Cost'][0]}{row}:{self.sheetnamesTITLEMerger_Range['Abstract of Cost'][1]}{row}"
             ws.merge_cells(mergerrows)
@@ -1694,7 +1750,7 @@ class DB_Output:
 
 
             # Optional: Adjust column widths for readability
-            column_widths = [8, 40, 12, 12, 12, 20]
+            column_widths = [5, 40, 7, 8, 8, 10, 8]
             for i, width in enumerate(column_widths, start=1):
                 ws.column_dimensions[chr(64 + i)].width = width
             return row
@@ -1833,7 +1889,7 @@ class DB_Output:
 
 
             # Optional: Adjust column widths for readability
-            column_widths = [8, 40, 12, 12, 12]
+            column_widths = [5, 45, 12, 10, 12]
             for i, width in enumerate(column_widths, start=1):
                 ws.column_dimensions[chr(64 + i)].width = width
             return row
@@ -1870,7 +1926,7 @@ class DB_Output:
             return AOCList
 
         #___________________________________________________________________Calling and Writing
-        itemNo_List, trimmedData, categorizedData, bulkedData, segregated_dict = self.QuantityEstSheet_Writing()
+        itemNo_List, trimmedData, categorizedData, bulkedData, segregated_dict = self.ProcessedData_Extractor()
         row = Titles_writing(row)
         row+=1
         reduced_dict = datasplitting(segregated_dict)
@@ -1933,7 +1989,7 @@ class DB_Output:
 
 
             # Optional: Adjust column widths for readability
-            column_widths = [8, 40, 10, 10, 15, 20, 12]
+            column_widths = [4, 25, 6, 7, 12, 20, 12]
             for i, width in enumerate(column_widths, start=1):
                 ws.column_dimensions[chr(64 + i)].width = width
             return row
@@ -1972,7 +2028,7 @@ class DB_Output:
             return AOCList
 
         #___________________________________________________________________Calling and Writing
-        itemNo_List, trimmedData, categorizedData, bulkedData, segregated_dict = self.QuantityEstSheet_Writing()
+        itemNo_List, trimmedData, categorizedData, bulkedData, segregated_dict = self.ProcessedData_Extractor()
         row = Titles_writing(row)
         row+=1
         reduced_dict = datasplitting(segregated_dict)
@@ -2000,7 +2056,7 @@ class DB_Output:
         RightVerticalHeaders = ["Total Amount (In figure):", "VAT (13%):", "Grand Total (In figure):", "Grand Total (In words):"]
 
         startrow = row
-        row_heights = [25, 50, 25, 30, 20, 20, 20]
+        row_heights = [25, 50, 25, 20, 20, 20, 20]
         columnnos = len(self.BOQheaders)
         for idx, (header, value) in enumerate(zip_longest(LeftVerticalHeaders, RightVerticalHeaders, fillvalue=""), start=1):
             row = row
@@ -2031,7 +2087,7 @@ class DB_Output:
         wb.close()
 
     def RateAnalysisDataWriting(self):
-        itemNo_List, trimmedData, categorizedData, bulkedData, segregated_dict = self.QuantityEstSheet_Writing()
+        itemNo_List, trimmedData, categorizedData, bulkedData, segregated_dict = self.ProcessedData_Extractor()
 
         wb = op.load_workbook(self.excel_name)  # 👈 change filename if needed
         if "Rate Analysis" in wb.sheetnames:
@@ -2044,7 +2100,7 @@ class DB_Output:
 
         RateAnalysisDict = {}
         for items in itemNo_List:
-            rows, appliedRateData = db_GUI.load_appliedRateAnalysis(item_number=items)
+            rows, appliedRateData = self.db_GUI.load_appliedRateAnalysis(item_number=items)
             RateAnalysisDict[items] = {"rows": rows,
                                        "appliedRateData": appliedRateData}
             IntegratedData = appliedRateData
@@ -2165,26 +2221,97 @@ class DB_Output:
             cell = ws.cell(row=r, column=1)  # Column A
             cell.alignment = self.right_align
 
-        column_widths = [5, 15, 20, 10, 8, 18, 12, 15]
+        column_widths = [4, 14, 15, 8, 6, 16, 10, 12]
         for i, width in enumerate(column_widths, start=1):
             ws.column_dimensions[chr(64 + i)].width = width
 
         wb.save(self.excel_name)
         print("Excel file created: RateAnalysis_Output.xlsx")
 
+    def PostProcessingExcel(self):
+        wb = op.load_workbook(self.excel_name)  # 👈 change filename if needed
+
+        for sheet in wb.sheetnames:
+            ws = wb[sheet]
+            row = ws.max_row
+
+            #Set print area
+            finalColumn = self.sheetnamesTITLEMerger_Range[sheet][1]
+            freezingRow = self.sheetnamesTITLEMerger_Range[sheet][3]
+            ws.print_area = f"A1:{finalColumn}{row}"
+
+            # Optionally, you can also set page setup options
+            ws.page_setup.fitToWidth = 1
+            ws.page_setup.fitToHeight = 1
+            ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
+            ws.page_setup.paperSize = ws.PAPERSIZE_A4
+            ws.page_setup.scale = 100  # ensure Excel applies scaling
+
+            # Reduce margins
+            ws.page_margins.left = 0.25
+            ws.page_margins.right = 0.25
+            ws.page_margins.top = 0.25
+            ws.page_margins.bottom = 0.75
+
+            ws.freeze_panes = ws[f"A{freezingRow}"]  # everything above row 8 is frozen (rows 1–7)
+            ws.print_title_rows = f"1:{freezingRow-1}"  # rows 1-7 repeat on every printed page
+
+            # --- Set footer to show page numbers ---
+            ws.page_margins.footer = 0.05 # in inches, default is 0.3
+            # &P = current page number, &N = total pages #&10 for the font size
+            ws.oddFooter.left.text = "&10Prepared by\n"
+            ws.oddFooter.center.text = "&10Checked by\nPage &P of &N"
+            ws.oddFooter.right.text = "&10Approved by\n"
 
 
 
-# Usage
-if __name__ == "__main__":
-    db_out = DB_Output()
-    db_out.SheetsTitle_Writing()
-    db_out.QuantityEstSheet_Writing()
-    db_out.AOC_writing()
-    db_out.SummaryWriting()
-    db_out.BOQ_Writing()
-    db_GUI = GUIDatabase(init_db=False)
-    db_out.RateAnalysisDataWriting()
+        wb.save(self.excel_name)
+        print("Excel file formatted successfully")
+
+
+    def excel_to_pdf_merge(self):
+
+        app = xw.App(visible=False)
+        wb = app.books.open(self.excel_name)
+        temp_pdfs = []
+
+        for sheet in wb.sheets:
+            # ✅ enforce absolute path
+            pdf_file = os.path.join(self.base_dir, f"{sheet.name}.pdf")
+
+            # Export each sheet as PDF
+            sheet.api.ExportAsFixedFormat(0, pdf_file)
+            temp_pdfs.append(pdf_file)
+
+        wb.close()
+        app.quit()
+
+
+        # Merge PDFs
+        merger = PdfMerger()
+        for pdf in temp_pdfs:
+            merger.append(pdf)
+        merger.write(self.pdf_path)
+        merger.close()
+
+        # Cleanup
+        for pdf in temp_pdfs:
+            os.remove(pdf)
+
+    def PrintPDF(self):
+        os.startfile(self.pdf_path, "print")         #Ensure to set the default printer from settings(set windows chooes = false, and set the printer as default)
+
+
+
+# db_out = DB_Output()
+# db_out.SheetsTitle_Writing()    #When the erroro of the io ie file not found occurs then enforce the Sheets Title function
+# db_out.QuantityEstSheet_Writing()
+# db_out.AOC_writing()
+# db_out.SummaryWriting()
+# db_out.BOQ_Writing()
+# db_out.RateAnalysisDataWriting()
+# db_out.PostProcessingExcel()
+# db_out.excel_to_pdf_merge()
 
 
 
