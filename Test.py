@@ -68,12 +68,72 @@ from kivy.app import App
 from kivymd.uix.selectioncontrol import MDCheckbox
 from datetime import datetime
 import json
+import json
+from datetime import datetime
+from kivy.clock import Clock
+from kivymd.uix.dialog import MDDialog, MDDialogHeadlineText, MDDialogContentContainer
+from kivymd.uix.progressindicator import MDCircularProgressIndicator
+from kivy.uix.boxlayout import BoxLayout
+
 objects_cache = {
     "Estimation_Data": {
         "Estimation_Sections": {}  # outer list of sections
     }
 }
 # Global cache for all dynamically created estimation GUI objects
+
+class ProgressManager:
+    """Global progress bar manager for long operations"""
+
+    def __init__(self, app):
+        self.app = app
+        self.dialog = None
+        self.progress_widget = None
+        self.label = None
+
+    def show(self, message="Processing..."):
+        """Show progress dialog"""
+        if self.dialog:
+            self.dismiss()
+
+        content = BoxLayout(orientation="vertical", spacing=20, padding=20)
+        content.size_hint_y = None
+        content.height = 150
+
+        self.progress_widget = MDCircularProgressIndicator(
+            size_hint=(None, None),
+            size=(48, 48),
+            pos_hint={"center_x": 0.5}
+        )
+
+        from kivymd.uix.label import MDLabel
+        self.label = MDLabel(
+            text=message,
+            halign="center",
+            theme_text_color="Primary"
+        )
+
+        content.add_widget(self.progress_widget)
+        content.add_widget(self.label)
+
+        self.dialog = MDDialog(
+            MDDialogHeadlineText(text="Please Wait"),
+            MDDialogContentContainer(content),
+            auto_dismiss=False
+        )
+        self.dialog.open()
+
+    def update(self, message):
+        """Update progress message"""
+        if self.label:
+            self.label.text = message
+
+    def dismiss(self):
+        """Dismiss progress dialog"""
+        if self.dialog:
+            self.dialog.dismiss()
+            self.dialog = None
+
 class GUI_DB_Handle():
     def sendGenInfoQEst_toDB(self):
         app.gui_DB.save_GenInfo_QEstimation(ObjectsCache=objects_cache)
@@ -501,6 +561,7 @@ class SubItemRow(BoxLayout):   # or MDBoxLayout, depending on your base
             ItemNo = ItemNo_Finder(self.ids.numbers)
             snNo = str(
                 ItemNo) + ".1"  # Could be taken any as all the dimensions box SN key contains same object of calc, quantity and cost objects
+            print(objects_cache["Estimation_Data"]["Estimation_Sections"].keys(), snNo)
             quantity_factor = objects_cache["Estimation_Data"]["Estimation_Sections"][snNo]["quantity_factor"]
             if float(self.ids.quantity.text) != 0:
                 factor = float(self.ids.quantity.text) / self.base_quantity
@@ -1266,6 +1327,8 @@ class CivilEstimationApp(MDApp):
         # container = main_screen.ids.get('dynamic_sections_container')
         # scroll_view = main_screen.ids.get('scroll_view')
 
+        self.progress = ProgressManager(self)
+
 
 
 
@@ -1774,64 +1837,62 @@ class CivilEstimationApp(MDApp):
 
         # objects_cache["Estimation_Data"]["Estimation_Sections"].append([])  #Innermost list is the estsec1, est sec2...
     def cache_forNewItem(self, ItemRowBase):
-        #Rule never go up for the widget object collection except for the estimation section data
-        inspector = GUIInspector(root_widget=app.root)
-        itemsObjects = {}
+        try:
+            #Rule never go up for the widget object collection except for the estimation section data
+            inspector = GUIInspector(root_widget=app.root)
+            itemsObjects = {}
 
-        #Level 1 of the estimation gui data
-        estimationSectionBase = inspector.find_nearestparent_with_parent_(ItemRowBase, "name", "EstimationPartSection_root")
-        estChildrens = inspector.get_widget_properties(estimationSectionBase)["children"]
+            #Level 1 of the estimation gui data
+            estimationSectionBase = inspector.find_nearestparent_with_parent_(ItemRowBase, "name", "EstimationPartSection_root")
+            estChildrens = inspector.get_widget_properties(estimationSectionBase)["children"]
 
-        #Level 2 of the estimation gui data
-        itemSectionBase = ItemRowBase
-        itemChildrens = inspector.get_widget_properties(itemSectionBase)["children"]
+            #Level 2 of the estimation gui data
+            itemSectionBase = ItemRowBase
+            itemChildrens = inspector.get_widget_properties(itemSectionBase)["children"]
 
-        #Level 3 of the estimation gui data
-        SubItemSectionBase = inspector.find_parent_with_child_( ItemRowBase, "name", "SubItemRow_base")
-        subItemChildrens = inspector.get_widget_properties(SubItemSectionBase)["children"]
-        item_numberField  =inspector.find_parent_with_child_(ItemRowBase, "name", "item_number")
-        item_numberFieldValue = inspector.get_widget_properties(item_numberField)["text"]
-
-        def CachebasedOnParentChild():
-            for items in self.ItemsIDs:
-                if items == "dynamic_saerchResults_container":
-                    itemsObjects[items] = inspector.find_parent_with_child_(itemSectionBase, "text", "Dynamic Search")
-                elif items == "EstimationPartSection_root":
-                    itemsObjects[items] = estimationSectionBase
-                elif items == "items_section_Title":
-                    itemsObjects[items] = inspector.find_parent_with_child_(itemSectionBase, "name", "item_number_label")
-                elif items == "estimation_Section_title":
-                    itemsObjects[items] = inspector.find_parent_with_child_(estimationSectionBase, "name", "estimation_Section_title")
-                # elif items in ["unit",        "rate",        "numbers",        "length",        "breadth",        "height",        "quantity",        "remarks"]:
-                #
-                #     query = "item_" + items
-                #     obj = inspector.find_parent_with_child_(SubItemSectionBase, "name", query)
-                #     itemsObjects[items] = obj
-                else:
-                    try:
-                        IDs =       SubItemSectionBase.ids
-                        obj = IDs[items]
-                        itemsObjects[items] = obj
-                    except:
-                        itemsObjects[items] = inspector.get_widget_by_id(items)
-            if SubItemSectionBase:
-                itemsObjects["SubItemRow_baseObj"] = SubItemSectionBase
-
-            objects_cache["Estimation_Data"]["Estimation_Sections"][item_numberFieldValue] = itemsObjects
-
-        CachebasedOnParentChild()
+            #Level 3 of the estimation gui data
+            SubItemSectionBase = inspector.find_parent_with_child_( ItemRowBase, "name", "SubItemRow_base")
+            subItemChildrens = inspector.get_widget_properties(SubItemSectionBase)["children"]
+            item_numberField  =inspector.find_parent_with_child_(ItemRowBase, "name", "item_number")
+            item_numberFieldValue = inspector.get_widget_properties(item_numberField)["text"]
 
 
 
 
 
+            def CachebasedOnParentChild():
+                for items in self.ItemsIDs:
+                    if items == "dynamic_saerchResults_container":
+                        itemsObjects[items] = inspector.find_parent_with_child_(itemSectionBase, "text", "Dynamic Search")
+                    elif items == "EstimationPartSection_root":
+                        itemsObjects[items] = estimationSectionBase
+                    elif items == "items_section_Title":
+                        itemsObjects[items] = inspector.find_parent_with_child_(itemSectionBase, "name", "item_number_label")
+                    elif items == "estimation_Section_title":
+                        itemsObjects[items] = inspector.find_parent_with_child_(estimationSectionBase, "name", "estimation_Section_title")
+                    # elif items in ["unit",        "rate",        "numbers",        "length",        "breadth",        "height",        "quantity",        "remarks"]:
+                    #
+                    #     query = "item_" + items
+                    #     obj = inspector.find_parent_with_child_(SubItemSectionBase, "name", query)
+                    #     itemsObjects[items] = obj
+                    else:
+                        try:
+                            IDs =       SubItemSectionBase.ids
+                            obj = IDs[items]
+                            itemsObjects[items] = obj
+                        except:
+                            itemsObjects[items] = inspector.get_widget_by_id(items)
+                if SubItemSectionBase:
+                    itemsObjects["SubItemRow_baseObj"] = SubItemSectionBase
 
+                objects_cache["Estimation_Data"]["Estimation_Sections"][item_numberFieldValue] = itemsObjects
 
+            CachebasedOnParentChild()
 
-
-
-
-
+        except Exception as e:
+            print(f"Error in cache_forNewItem: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 
@@ -1847,53 +1908,85 @@ class CivilEstimationApp(MDApp):
 
 
 
-    #_______________________________________________________________________________File saving and retrieving
-    import json
-    from datetime import datetime
-    from kivy.clock import Clock
 
-    # Replace these functions in your CivilEstimationApp class
+
+
+
+
+
+
+
+
+
+
+
+
+    #_______________________________________________________________________________File saving and retrieving, _# ENHANCED SAVE/LOAD FUNCTIONS
+
+
 
     def save_gui_state(self, filename=None):
-        """Save the current GUI state as logical data structure"""
+        """Save complete GUI state including database references"""
         if not filename:
             filename = f"gui_state_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
 
-        try:
-            state = self._collect_gui_state()
-            with open(filename, "w", encoding="utf-8") as f:
-                json.dump(state, f, ensure_ascii=False, indent=2)
-            self.toast(f"Saved to {filename}")
-            return filename
-        except Exception as e:
-            print(f"Save error: {e}")
-            self.toast(f"Error saving: {e}")
-            return None
+        self.progress.show("Saving state...")
+
+        def do_save(dt):
+            try:
+                state = self._collect_gui_state()
+
+                self.progress.update("Writing to file...")
+                with open(filename, "w", encoding="utf-8") as f:
+                    json.dump(state, f, ensure_ascii=False, indent=2)
+
+                self.progress.dismiss()
+                self.toast(f"Saved to {filename}")
+                return filename
+            except Exception as e:
+                self.progress.dismiss()
+                print(f"Save error: {e}")
+                import traceback
+                traceback.print_exc()
+                self.toast(f"Error saving: {e}")
+                return None
+
+        Clock.schedule_once(do_save, 0.1)
 
     def load_gui_state(self, filename):
-        """Load GUI state from file"""
+        """Load complete GUI state"""
         if not filename:
             return False
 
-        try:
-            with open(filename, "r", encoding="utf-8") as f:
-                state = json.load(f)
+        self.progress.show("Loading state...")
 
-            # Clear current state
-            self.restart_estimation()
+        def do_load(dt):
+            try:
+                self.progress.update("Reading file...")
+                with open(filename, "r", encoding="utf-8") as f:
+                    state = json.load(f)
 
-            # Restore from data
-            Clock.schedule_once(lambda dt: self._restore_gui_state(state), 0.1)
+                self.progress.update("Clearing current state...")
+                self.restart_estimation()
 
-            self.toast(f"Loaded from {filename}")
-            return True
-        except Exception as e:
-            print(f"Load error: {e}")
-            self.toast(f"Error loading: {e}")
-            return False
+                # Wait for clear to complete
+                Clock.schedule_once(lambda dt: self._restore_gui_state(state), 0.2)
+
+            except Exception as e:
+                self.progress.dismiss()
+                print(f"Load error: {e}")
+                import traceback
+                traceback.print_exc()
+                self.toast(f"Error loading: {e}")
+                return False
+
+        Clock.schedule_once(do_load, 0.1)
+        return True
+
+    # ENHANCED DATA COLLECTION
 
     def _collect_gui_state(self):
-        """Collect logical data from GUI"""
+        """Collect complete logical data from GUI including database state"""
         main_screen = self.sm.get_screen("main_screen")
 
         # Collect general information
@@ -1903,26 +1996,56 @@ class CivilEstimationApp(MDApp):
                 widget = main_screen.ids.get(field_id)
                 if widget and hasattr(widget, 'text'):
                     gen_info[field_id] = widget.text
-            except:
-                pass
+            except Exception as e:
+                print(f"Error collecting {field_id}: {e}")
 
         # Collect estimation sections
         container = main_screen.ids.get('dynamic_sections_container')
         if not container:
-            return {"general_info": gen_info, "sections": [], "timestamp": datetime.now().isoformat()}
+            return {
+                "general_info": gen_info,
+                "sections": [],
+                "database_state": {},
+                "timestamp": datetime.now().isoformat(),
+                "version": "1.1"
+            }
 
         sections = []
-        for section_widget in reversed(container.children):  # Kivy stores reversed
+        for section_widget in reversed(container.children):
             section_data = self._collect_section(section_widget)
             if section_data:
                 sections.append(section_data)
 
+        # Collect database state for rate analysis
+        db_state = self._collect_database_state()
+
         return {
             "general_info": gen_info,
             "sections": sections,
+            "database_state": db_state,
+            "objects_cache_keys": list(objects_cache["Estimation_Data"]["Estimation_Sections"].keys()),
             "timestamp": datetime.now().isoformat(),
-            "version": "1.0"
+            "version": "1.1"
         }
+
+    def _collect_database_state(self):
+        """Collect all rate analysis data from database"""
+        db_state = {}
+        try:
+            # Get all item numbers that have applied rates
+            cursor = self.gui_DB.conn.cursor()
+            cursor.execute("SELECT DISTINCT item_number FROM applied_rate_analysis")
+            item_numbers = [row[0] for row in cursor.fetchall()]
+
+            for item_no in item_numbers:
+                rows, applied_data = self.gui_DB.load_appliedRateAnalysis(item_no)
+                if rows and applied_data:
+                    db_state[item_no] = applied_data
+
+        except Exception as e:
+            print(f"Error collecting database state: {e}")
+
+        return db_state
 
     def _collect_section(self, section_widget):
         """Collect data from one EstimationPart"""
@@ -1933,11 +2056,11 @@ class CivilEstimationApp(MDApp):
                 "items": []
             }
 
-            # Find item container
             item_container = section_widget.ids.get('dynamic_item_container')
             if not item_container:
                 return section_data
 
+            # Collect items in reverse order (Kivy stores reversed)
             for item_widget in reversed(item_container.children):
                 item_data = self._collect_item(item_widget)
                 if item_data:
@@ -1949,16 +2072,41 @@ class CivilEstimationApp(MDApp):
             return None
 
     def _collect_item(self, item_widget):
-        """Collect data from one ItemQuantity_Details"""
+        """Collect complete data from one ItemQuantity_Details including search state"""
         try:
+            item_no = getattr(item_widget, 'item_no', '1.1')
+
             item_data = {
                 "item_number": getattr(item_widget, 'item_number', 1),
                 "section_number": getattr(item_widget, 'section_number', 1),
-                "item_no": getattr(item_widget, 'item_no', '1.1'),
+                "item_no": item_no,
+                "item_number_label": item_widget.ids.item_number_label.text,
                 "dropdown_text": item_widget.ids.dropdown.text,
                 "search_keyword": item_widget.ids.search_keyword_input.text,
+                "search_results": None,
+                "applied_rate_ref": None,
                 "subitems": []
             }
+
+            # Check if search results exist
+            search_container = item_widget.ids.get('dynamic_searchResults_container')
+            if search_container and search_container.children:
+                # Get search results widget
+                search_widget = search_container.children[0]
+                if hasattr(search_widget, 'ids') and 'search_rv' in search_widget.ids:
+                    rv = search_widget.ids.search_rv
+                    item_data["search_results"] = {
+                        "data": list(rv.data),
+                        "visible": True
+                    }
+
+            # Check database for applied rate
+            try:
+                rows, applied_data = self.gui_DB.load_appliedRateAnalysis(item_no)
+                if rows and applied_data:
+                    item_data["applied_rate_ref"] = applied_data.get("NormsDBRef")
+            except:
+                pass
 
             # Collect subitems
             dims_container = item_widget.ids.get('dimensions_container')
@@ -1971,6 +2119,8 @@ class CivilEstimationApp(MDApp):
             return item_data
         except Exception as e:
             print(f"Error collecting item: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def _collect_subitem(self, subitem_widget):
@@ -2001,54 +2151,91 @@ class CivilEstimationApp(MDApp):
             print(f"Error collecting subitem: {e}")
             return None
 
+    # ENHANCED RESTORATION
+
     def _restore_gui_state(self, state):
-        """Restore GUI from logical data"""
+        """Restore complete GUI from logical data"""
         from kivy.factory import Factory
 
-        main_screen = self.sm.get_screen("main_screen")
+        try:
+            self.progress.update("Restoring general info...")
+            main_screen = self.sm.get_screen("main_screen")
 
-        # Restore general information
-        gen_info = state.get("general_info", {})
-        for field_id, text_value in gen_info.items():
-            try:
-                widget = main_screen.ids.get(field_id)
-                if widget and hasattr(widget, 'text'):
-                    widget.text = text_value
-            except Exception as e:
-                print(f"Error restoring {field_id}: {e}")
+            # Restore general information
+            gen_info = state.get("general_info", {})
+            for field_id, text_value in gen_info.items():
+                try:
+                    widget = main_screen.ids.get(field_id)
+                    if widget and hasattr(widget, 'text'):
+                        widget.text = str(text_value) if text_value is not None else ""
+                except Exception as e:
+                    print(f"Error restoring {field_id}: {e}")
 
-        # Restore sections
-        container = main_screen.ids.get('dynamic_sections_container')
-        scroll_view = main_screen.ids.get('scroll_view')
+            # Get containers
+            container = main_screen.ids.get('dynamic_sections_container')
+            scroll_view = main_screen.ids.get('scroll_view')
 
-        if not container:
-            print("Container not found!")
+            if not container:
+                print("Container not found!")
+                self.progress.dismiss()
+                return False
+
+            # Clear and reset
+            container.clear_widgets()
+            objects_cache["Estimation_Data"]["Estimation_Sections"] = {}
+
+            # Restore database state first
+            db_state = state.get("database_state", {})
+            if db_state:
+                self.progress.update("Restoring database state...")
+                self._restore_database_state(db_state)
+
+            # Restore sections
+            sections = state.get("sections", [])
+            total_sections = len(sections)
+
+            for idx, section_data in enumerate(sections, 1):
+                self.progress.update(f"Restoring section {idx}/{total_sections}...")
+                self._restore_section(section_data, container, scroll_view)
+
+            # Update cache
+            self.progress.update("Updating cache...")
+            Clock.schedule_once(lambda dt: self.cache_forNewSection(), 0.1)
+
+            # Final cleanup
+            Clock.schedule_once(lambda dt: self._finalize_restore(), 0.3)
+
+            return True
+
+        except Exception as e:
+            self.progress.dismiss()
+            print(f"Error in restore_gui_state: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
-        container.clear_widgets()
-        objects_cache["Estimation_Data"]["Estimation_Sections"] = {}
-
-        sections = state.get("sections", [])
-        for section_data in sections:
-            self._restore_section(section_data, container, scroll_view)
-
-        # Update cache
-        self.cache_forNewSection()
-
-        return True
+    def _restore_database_state(self, db_state):
+        """Restore rate analysis data to database"""
+        for item_no, applied_data in db_state.items():
+            try:
+                self.GUIHandle.sendAppRateTo_DB(item_no, applied_data)
+            except Exception as e:
+                print(f"Error restoring DB for {item_no}: {e}")
 
     def _restore_section(self, section_data, container, scroll_view):
         """Restore one EstimationPart section"""
         from kivy.factory import Factory
 
         try:
-            # Create section widget
             new_section = Factory.EstimationPart()
             new_section.section_number = section_data.get("section_number", 1)
 
             # Set section title
-            if "section_title" in section_data:
-                new_section.ids.section_header.text = section_data["section_title"]
+            section_title = section_data.get("section_title", f"Estimation Section {new_section.section_number}")
+            Clock.schedule_once(
+                lambda dt: setattr(new_section.ids.section_header, 'text', section_title),
+                0.05
+            )
 
             container.add_widget(new_section)
 
@@ -2060,41 +2247,84 @@ class CivilEstimationApp(MDApp):
 
         except Exception as e:
             print(f"Error restoring section: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _restore_item(self, item_data, item_container, section_widget):
-        """Restore one ItemQuantity_Details"""
+        """Restore one ItemQuantity_Details with complete state"""
         from kivy.factory import Factory
 
         try:
-            # Create item widget
             new_item = Factory.ItemQuantity_Details()
             new_item.item_number = item_data.get("item_number", 1)
             new_item.section_number = item_data.get("section_number", 1)
 
             item_container.add_widget(new_item)
 
-            # Set item properties
-            if "dropdown_text" in item_data:
-                new_item.ids.dropdown.text = item_data["dropdown_text"]
-            if "search_keyword" in item_data:
-                new_item.ids.search_keyword_input.text = item_data["search_keyword"]
+            # Restore item properties with delay
+            def restore_item_props(dt):
+                try:
+                    # Set item number label
+                    if "item_number_label" in item_data:
+                        new_item.ids.item_number_label.text = item_data["item_number_label"]
+
+                    # Set dropdown
+                    if "dropdown_text" in item_data:
+                        new_item.ids.dropdown.text = item_data["dropdown_text"]
+
+                    # Set search keyword
+                    if "search_keyword" in item_data:
+                        new_item.ids.search_keyword_input.text = item_data["search_keyword"]
+
+                    # Restore search results if they existed
+                    search_results = item_data.get("search_results")
+                    if search_results and search_results.get("visible"):
+                        Clock.schedule_once(
+                            lambda dt: self._restore_search_results(new_item, search_results),
+                            0.1
+                        )
+
+                except Exception as e:
+                    print(f"Error in restore_item_props: {e}")
+
+            Clock.schedule_once(restore_item_props, 0.05)
 
             # Restore subitems
             dims_container = new_item.ids.get('dimensions_container')
             if dims_container:
                 for subitem_data in item_data.get("subitems", []):
-                    self._restore_subitem(subitem_data, dims_container, new_item)
+                    self._restore_subitem(subitem_data, dims_container, new_item, item_data)
 
         except Exception as e:
             print(f"Error restoring item: {e}")
+            import traceback
+            traceback.print_exc()
 
-    def _restore_subitem(self, subitem_data, dims_container, item_widget):
-        """Restore one SubItemRow"""
+    def _restore_search_results(self, item_widget, search_results):
+        """Restore search results for an item"""
         from kivy.factory import Factory
-        from kivy.clock import Clock
 
         try:
-            # Create subitem widget
+            search_container = item_widget.ids.get('dynamic_searchResults_container')
+            if not search_container:
+                return
+
+            search_container.clear_widgets()
+            search_widget = Factory.Search_Results()
+            search_container.add_widget(search_widget)
+
+            # Restore data
+            rv_data = search_results.get("data", [])
+            search_widget.ids.search_rv.data = rv_data
+
+        except Exception as e:
+            print(f"Error restoring search results: {e}")
+
+    def _restore_subitem(self, subitem_data, dims_container, item_widget, item_data):
+        """Restore one SubItemRow with all field values"""
+        from kivy.factory import Factory
+
+        try:
             new_subitem = Factory.SubItemRow()
             new_subitem.section_number = subitem_data.get("section_number", 1)
             new_subitem.item_number = subitem_data.get("item_number", 1)
@@ -2102,11 +2332,22 @@ class CivilEstimationApp(MDApp):
 
             dims_container.add_widget(new_subitem)
 
-            # Cache the item BEFORE setting values
-            self.cache_forNewItem(item_widget)
+            # Cache BEFORE setting values
 
-            # Set field values (delayed to ensure widgets are ready)
-            def set_values(dt):
+            # Clock.schedule_once(lambda dt: self.cache_forNewItem(item_widget), 0.02)
+
+            #The main problem here is that the object cache dooesnot have any information of the subitem number ie stored in it.
+            #So when the sub item number is called upon it must set the values and their objects
+            # it is now solved when the gui is
+            self.cache_forNewItem(item_widget)
+            inspector = GUIInspector(root_widget=app.root)
+            props = inspector.get_widget_properties(item_widget)
+            print(props["name"], props["item_no"],props["children"] ,objects_cache)
+            print(inspector.get_widget_properties(inspector.find_parent_with_child_(item_widget, "name", "item_number"))["text"])
+
+
+            # Set field values with proper delay
+            def set_subitem_values(dt):
                 try:
                     fields = {
                         'item_description': subitem_data.get('item_description', '-'),
@@ -2122,19 +2363,98 @@ class CivilEstimationApp(MDApp):
                     for field_id, value in fields.items():
                         field = new_subitem.ids.get(field_id)
                         if field and hasattr(field, 'text'):
-                            field.text = value
+                            # Convert None or empty to "-"
+                            text_value = str(value) if value not in [None, ''] else "-"
+                            field.text = text_value
 
-                    # Trigger calculation after all values are set
-                    if hasattr(new_subitem, 'calculate_quantity'):
-                        Clock.schedule_once(lambda dt: new_subitem.calculate_quantity(), 0.1)
+                    # Apply rate from database if exists
+                    item_no = item_data.get("item_no")
+                    applied_ref = item_data.get("applied_rate_ref")
+
+                    if item_no and applied_ref:
+                        Clock.schedule_once(
+                            lambda dt: self._apply_saved_rate(item_no, new_subitem),
+                            0.1
+                        )
+                    else:
+                        # Just trigger calculation
+                        if hasattr(new_subitem, 'calculate_quantity'):
+                            Clock.schedule_once(
+                                lambda dt: new_subitem.calculate_quantity(),
+                                0.15
+                            )
 
                 except Exception as e:
                     print(f"Error setting subitem values: {e}")
+                    import traceback
+                    traceback.print_exc()
 
-            Clock.schedule_once(set_values, 0.05)
+            Clock.schedule_once(set_subitem_values, 0.05)
 
         except Exception as e:
             print(f"Error restoring subitem: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _apply_saved_rate(self, item_no, subitem_widget):
+        """Apply saved rate from database to subitem"""
+        try:
+            rows, applied_data = self.gui_DB.load_appliedRateAnalysis(item_no)
+            if rows and applied_data:
+                unit_rate = applied_data.get("Second Inner table", {}).get("Unit Rate", [0])[0]
+                rate_field = subitem_widget.ids.get("rate")
+                if rate_field:
+                    rate_field.text = "{:.2f}".format(float(unit_rate))
+
+                # Trigger calculation
+                if hasattr(subitem_widget, 'calculate_quantity'):
+                    subitem_widget.calculate_quantity()
+        except Exception as e:
+            print(f"Error applying saved rate: {e}")
+
+    def _finalize_restore(self):
+        """Final cleanup after restore"""
+        try:
+            # Force all calculations
+            main_screen = self.sm.get_screen("main_screen")
+            container = main_screen.ids.get('dynamic_sections_container')
+
+            if container:
+                for section in container.children:
+                    item_container = section.ids.get('dynamic_item_container')
+                    if item_container:
+                        for item in item_container.children:
+                            dims_container = item.ids.get('dimensions_container')
+                            if dims_container:
+                                for subitem in dims_container.children:
+                                    if hasattr(subitem, 'calculate_quantity'):
+                                        try:
+                                            subitem.calculate_quantity()
+                                        except:
+                                            pass
+            #set the scroll to latest
+            main_screen = self.sm.get_screen("main_screen")
+            est_screen = self.sm.get_screen("estimation_screen")
+            container = main_screen.ids.get('dynamic_sections_container')
+            scroll_view = main_screen.ids.get('scroll_view')
+            if scroll_view:
+                scroll_view.scroll_y = 1
+            else:
+                print("scroll_view not found!")
+
+            # Save current state to DB
+            self.GUIHandle.sendGenInfoQEst_toDB()
+
+            self.progress.dismiss()
+            self.toast("State restored successfully!")
+
+        except Exception as e:
+            self.progress.dismiss()
+            print(f"Error in finalize_restore: {e}")
+
+
+
+    # =============================# FIX: Enhanced file dialogs with proper callbacks
 
     def open_save_dialog(self):
         """Open dialog for saving GUI state"""
@@ -2153,21 +2473,21 @@ class CivilEstimationApp(MDApp):
             filename = filename_input.text.strip()
             if not filename.endswith('.json'):
                 filename += '.json'
-            self.save_gui_state(filename)
             popup.dismiss()
+            # Use Clock to ensure dialog closes before showing progress
+            Clock.schedule_once(lambda dt: self.save_gui_state(filename), 0.1)
 
         def on_cancel(instance):
             popup.dismiss()
 
         btn_layout = BoxLayout(size_hint_y=None, height=dp(50), spacing=10)
+
         save_btn = MDButton(on_release=on_save)
         save_btn.add_widget(MDButtonText(text="Save"))
 
-        # save_btn = MDButton(text="Save", on_release=on_save)
         cancel_btn = MDButton(on_release=on_cancel)
         cancel_btn.add_widget(MDButtonText(text="Cancel"))
 
-        # cancel_btn = MDButton(text="Cancel", on_release=on_cancel)
         btn_layout.add_widget(save_btn)
         btn_layout.add_widget(cancel_btn)
 
@@ -2176,41 +2496,63 @@ class CivilEstimationApp(MDApp):
         popup = Popup(
             title="Save GUI State",
             content=content,
-            size_hint=(0.6, 0.4)
+            size_hint=(0.6, 0.4),
+            auto_dismiss=False
         )
         popup.open()
 
+
     def open_load_dialog(self):
-        """Open dialog for loading GUI state"""
-        # For simplicity, using a fixed filename - you can enhance this with file browser
+        """Open dialog for loading GUI state with file browser"""
+        import os
+        from kivy.uix.filechooser import FileChooserListView
+
         content = BoxLayout(orientation="vertical", padding=10, spacing=10)
 
-        filename_input = MDTextField(
-            hint_text="Enter filename to load",
-            size_hint_y=None,
-            height=dp(40)
+        # File chooser
+        filechooser = FileChooserListView(
+            path=os.getcwd(),
+            filters=['*.json'],
+            size_hint=(1, 0.8)
         )
+        content.add_widget(filechooser)
 
-        content.add_widget(filename_input)
+        # Selected file label
+        from kivymd.uix.label import MDLabel
+        selected_label = MDLabel(
+            text="No file selected",
+            size_hint_y=None,
+            height=dp(30),
+            theme_text_color="Secondary"
+        )
+        content.add_widget(selected_label)
+
+        def on_selection(instance, value):
+            if value:
+                selected_label.text = f"Selected: {os.path.basename(value[0])}"
+
+        filechooser.bind(selection=on_selection)
 
         def on_load(instance):
-            filename = filename_input.text.strip()
-            if filename:
-                self.load_gui_state(filename)
-            popup.dismiss()
+            if filechooser.selection:
+                filename = filechooser.selection[0]
+                popup.dismiss()
+                # Use Clock to ensure dialog closes before showing progress
+                Clock.schedule_once(lambda dt: self.load_gui_state(filename), 0.1)
+            else:
+                self.toast("Please select a file")
 
         def on_cancel(instance):
             popup.dismiss()
 
         btn_layout = BoxLayout(size_hint_y=None, height=dp(50), spacing=10)
-        # load_btn = MDButton(text="Load", on_release=on_load)
+
         load_btn = MDButton(on_release=on_load)
         load_btn.add_widget(MDButtonText(text="Load"))
+
         cancel_btn = MDButton(on_release=on_cancel)
         cancel_btn.add_widget(MDButtonText(text="Cancel"))
 
-
-        # cancel_btn = MDButton(text="Cancel", on_release=on_cancel)
         btn_layout.add_widget(load_btn)
         btn_layout.add_widget(cancel_btn)
 
@@ -2219,11 +2561,10 @@ class CivilEstimationApp(MDApp):
         popup = Popup(
             title="Load GUI State",
             content=content,
-            size_hint=(0.6, 0.4)
+            size_hint=(0.7, 0.7),
+            auto_dismiss=False
         )
         popup.open()
-
-
 class EditPopupContent(MDBoxLayout):
     def __init__(self, item_data, **kwargs):
         super().__init__(**kwargs)
