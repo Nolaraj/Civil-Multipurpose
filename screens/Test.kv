@@ -790,8 +790,10 @@
     padding: dp(8)
     spacing: dp(12)
     md_bg_color: self.theme_cls.backgroundColor if hasattr(self, 'theme_cls') else (1,1,1,1)
+    name: "SearchResults"
     Widget:
         size_hint_x: 0.5  # left empty 50% space:
+
 
     MDLabel:
         text: "[i][u]Search Results[/u][/i]"
@@ -836,6 +838,7 @@
     is_highlighted: False
     index: 0
     adaptive_height: True
+    name: "SearchItem_"
 
     BoxLayout:
         orientation: "horizontal"

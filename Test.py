@@ -81,7 +81,11 @@ objects_cache = {
     }
 }
 # Global cache for all dynamically created estimation GUI objects
-
+def safe_float(value):
+    try:
+        return float(value)
+    except:
+        return value
 class ProgressManager:
     """Global progress bar manager for long operations"""
 
@@ -561,7 +565,6 @@ class SubItemRow(BoxLayout):   # or MDBoxLayout, depending on your base
             ItemNo = ItemNo_Finder(self.ids.numbers)
             snNo = str(
                 ItemNo) + ".1"  # Could be taken any as all the dimensions box SN key contains same object of calc, quantity and cost objects
-            print(objects_cache["Estimation_Data"]["Estimation_Sections"].keys(), snNo)
             quantity_factor = objects_cache["Estimation_Data"]["Estimation_Sections"][snNo]["quantity_factor"]
             if float(self.ids.quantity.text) != 0:
                 factor = float(self.ids.quantity.text) / self.base_quantity
@@ -1319,6 +1322,8 @@ class CivilEstimationApp(MDApp):
         self.sm = ScreenManager()
         self.sm.add_widget(MainScreen(name="main_screen"))
         self.sm.add_widget(EstimationScreen(name="estimation_screen"))
+        self.searchCOntainterChildrens = {}
+
 
 
 
@@ -2306,19 +2311,111 @@ class CivilEstimationApp(MDApp):
 
         try:
             search_container = item_widget.ids.get('dynamic_searchResults_container')
+            item_no_val = getattr(item_widget, "item_no", None)
+
             if not search_container:
                 return
 
             search_container.clear_widgets()
             search_widget = Factory.Search_Results()
             search_container.add_widget(search_widget)
+            if item_no_val:
+                self.searchCOntainterChildrens[str(item_no_val)] = {
+                    "container": search_container,
+                    "widget": search_widget,
+                }
 
             # Restore data
             rv_data = search_results.get("data", [])
             search_widget.ids.search_rv.data = rv_data
 
+            self._auto_apply_single_search_results()
+
+
         except Exception as e:
             print(f"Error restoring search results: {e}")
+
+    def _auto_apply_single_search_results(self):
+        """Auto-apply rate analysis if search results contain only one item by simulating button click"""
+
+        def _find_and_click_apply( rv, item_key):
+            """Run after RV has rendered to find the 'check' icon."""
+            try:
+                from kivy.app import App
+                app = App.get_running_app()
+                inspector = GUIInspector(root_widget=app.root)
+
+                # find the first SearchItem
+                recycle_layout = None
+                for child in rv.children:
+                    if hasattr(child, 'default_size'):  # RecycleBoxLayout
+                        recycle_layout = child
+                        break
+
+                if not recycle_layout or not recycle_layout.children:
+                    print(f"No SearchItem widgets yet for {item_key}")
+                    return
+
+                search_item_widget = recycle_layout.children[0]
+
+                # recursively find check icon
+                def find_apply_button(widget):
+                    if hasattr(widget, 'icon') and widget.icon == "check":
+                        return widget
+                    for c in getattr(widget, 'children', []):
+                        btn = find_apply_button(c)
+                        if btn:
+                            return btn
+                    return None
+
+                apply_button = find_apply_button(search_item_widget)
+                if apply_button:
+                    print(f"Clicking apply button for {item_key}")
+                    apply_button.dispatch('on_release')
+                else:
+                    print(f"No apply button found in {item_key}")
+
+            except Exception as e:
+                print(f"Error in _find_and_click_apply for {item_key}: {e}")
+
+        try:
+            # Iterate through all items in objects_cache
+            cache_keys = list(objects_cache["Estimation_Data"]["Estimation_Sections"].keys())
+
+            for item_key in cache_keys:
+                # Only process main item keys (x.y format, not x.y.z)
+                if safe_float(item_key.split(".")[-1]) == 1:
+                    print(item_key, "inside")
+
+                    try:
+                        item_cache = objects_cache["Estimation_Data"]["Estimation_Sections"].get(item_key)
+                        if not item_cache:
+                            continue
+
+                        # Get search results container
+                        item_no = ".".join(item_key.split(".")[0:2])
+                        search_entry = self.searchCOntainterChildrens.get(str(item_no))
+                        if not search_entry:
+                            continue
+
+                        search_container = search_entry["container"]
+                        search_widget = search_entry["widget"]
+
+                        rv = search_widget.ids.search_rv
+                        Clock.schedule_once(
+                            lambda dt, rv=rv, item_key=item_key: _find_and_click_apply(rv, item_key), 0.1)
+
+
+                    except Exception as e:
+                        print(f"Error processing item {item_key}: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        continue
+
+        except Exception as e:
+            print(f"Error in _auto_apply_single_search_results: {e}")
+            import traceback
+            traceback.print_exc()("Second Inner table", {}).get("Unit Rate", [0])[0]
 
     def _restore_subitem(self, subitem_data, dims_container, item_widget, item_data):
         """Restore one SubItemRow with all field values"""
@@ -2342,8 +2439,6 @@ class CivilEstimationApp(MDApp):
             self.cache_forNewItem(item_widget)
             inspector = GUIInspector(root_widget=app.root)
             props = inspector.get_widget_properties(item_widget)
-            print(props["name"], props["item_no"],props["children"] ,objects_cache)
-            print(inspector.get_widget_properties(inspector.find_parent_with_child_(item_widget, "name", "item_number"))["text"])
 
 
             # Set field values with proper delay
@@ -2442,6 +2537,7 @@ class CivilEstimationApp(MDApp):
             else:
                 print("scroll_view not found!")
 
+
             # Save current state to DB
             self.GUIHandle.sendGenInfoQEst_toDB()
 
@@ -2451,7 +2547,6 @@ class CivilEstimationApp(MDApp):
         except Exception as e:
             self.progress.dismiss()
             print(f"Error in finalize_restore: {e}")
-
 
 
     # =============================# FIX: Enhanced file dialogs with proper callbacks
@@ -2539,6 +2634,7 @@ class CivilEstimationApp(MDApp):
                 popup.dismiss()
                 # Use Clock to ensure dialog closes before showing progress
                 Clock.schedule_once(lambda dt: self.load_gui_state(filename), 0.1)
+
             else:
                 self.toast("Please select a file")
 
@@ -2565,171 +2661,11 @@ class CivilEstimationApp(MDApp):
             auto_dismiss=False
         )
         popup.open()
-class EditPopupContent(MDBoxLayout):
-    def __init__(self, item_data, **kwargs):
-        super().__init__(**kwargs)
-        self.orientation = "vertical"
-        self.spacing = "12dp"
-        self.padding = "12dp"
-        self.size_hint = (1, None)
-        self.height = "550dp"  # Initial height (will be adjusted)
-        self.original_data = item_data
-        self.fields = {}
-        self.create_fields()
 
-    def create_fields(self):
-        self.clear_widgets()
 
-        # Main container with scroll
-        main_scroll = MDScrollView(
-            size_hint=(1, 1),
-            bar_width=8,
-            bar_color=(0.6, 0.6, 0.6, 0.8)
-        )
-        content_box = MDBoxLayout(
-            orientation="vertical",
-            spacing="12dp",
-            size_hint_y=None,
-            padding="10dp"
-        )
-        content_box.bind(minimum_height=content_box.setter('height'))
 
-        # Create sections
-        for section, content in self.original_data.items():
-            if not content:  # Skip empty sections
-                continue
 
-            # Section header
-            section_header = MDBoxLayout(
-                orientation="horizontal",
-                size_hint_y=None,
-                height="40dp",
-                md_bg_color=(0.9, 0.9, 0.9, 0.3),
-                padding="10dp"
-            )
-            section_header.add_widget(MDLabel(
-                text=f"[size=18][b]{section}[/b][/size]",
-                markup=True,
-                halign="left",
-                font_name="MultiLangFont",
-                size_hint_x=1
-            ))
-            content_box.add_widget(section_header)
 
-            # Section content
-            if section == "First Inner table":
-                self.create_first_inner_table(content, content_box)
-            else:
-                self.create_regular_section(section, content, content_box)
-
-        main_scroll.add_widget(content_box)
-        self.add_widget(main_scroll)
-
-    def create_first_inner_table(self, content, parent):
-        # Create a grid for the table
-        table_grid = MDGridLayout(
-            cols=1,
-            spacing="10dp",
-            size_hint_y=None,
-            padding="5dp"
-        )
-        table_grid.bind(minimum_height=table_grid.setter('height'))
-
-        # Add titles row (non-editable)
-        if 'Title' in content and content['Title']:
-            title_row = MDBoxLayout(
-                orientation="horizontal",
-                size_hint_y=None,
-                height="40dp",
-                spacing="5dp"
-            )
-            for title in content['Title'][0]:
-                title_row.add_widget(MDLabel(
-                    text=str(title),
-                    size_hint_x=1 / len(content['Title'][0]),
-                    halign="center",
-                    font_name="MultiLangFont",
-                    bold=True
-                ))
-            table_grid.add_widget(title_row)
-
-        # Add editable rows for each category
-        for category in ['Manpower', 'Materials', 'Machines']:
-            if category in content and content[category]:
-                # Category label
-                cat_label = MDLabel(
-                    text=category,
-                    size_hint_y=None,
-                    height="30dp",
-                    halign="left",
-                    font_name="MultiLangFont",
-                    bold=True,
-                    padding=("10dp", 0)
-                )
-                table_grid.add_widget(cat_label)
-
-                # Data rows
-                for row_idx, row in enumerate(content[category]):
-                    row_box = MDBoxLayout(
-                        orientation="horizontal",
-                        size_hint_y=None,
-                        height="40dp",
-                        spacing="5dp"
-                    )
-                    for col_idx, value in enumerate(row):
-                        field = MDTextField(
-                            text=str(value),
-                            size_hint_x=1 / len(row),
-                            multiline=False,
-                            font_name="MultiLangFont",
-                            mode="rectangle",
-                            padding="10dp"
-                        )
-                        self.fields[f"{category}_{row_idx}_{col_idx}"] = field
-                        row_box.add_widget(field)
-                    table_grid.add_widget(row_box)
-
-        parent.add_widget(table_grid)
-
-    def create_regular_section(self, section, content, parent):
-        for key, value in content.items():
-            if not value:  # Skip empty values
-                continue
-
-            field_box = MDBoxLayout(
-                orientation="horizontal",
-                size_hint_y=None,
-                height="40dp",
-                spacing="10dp"
-            )
-
-            # Key label
-            field_box.add_widget(MDLabel(
-                text=f"{key}:",
-                size_hint_x=0.3,
-                halign="right",
-                font_name="MultiLangFont"
-            ))
-
-            # Value field
-            if isinstance(value, list):
-                field_value = ", ".join(str(x) for x in value)
-            else:
-                field_value = str(value)
-
-            value_field = MDTextField(
-                text=field_value,
-                size_hint_x=0.7,
-                multiline=False,
-                font_name="MultiLangFont",
-                mode="rectangle"
-            )
-            self.fields[f"{section}_{key}"] = value_field
-            field_box.add_widget(value_field)
-
-            parent.add_widget(field_box)
-
-estcalass = EstimationScreen
 if __name__ == "__main__":
     Window.minimum_width, Window.minimum_height = (800, 600)
     app = CivilEstimationApp()
