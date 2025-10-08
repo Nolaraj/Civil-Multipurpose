@@ -5,21 +5,23 @@ from dataclasses import dataclass
 import json
 import os
 from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, PatternFill
-from openpyxl.styles import Font, Alignment, Border, Side
+from openpyxl.styles import PatternFill
+from openpyxl.styles import Font, Alignment
 import openpyxl as op
 from itertools import zip_longest
-from openpyxl.styles import Border, Side, Color
-from openpyxl.worksheet.pagebreak import Break
-from openpyxl.utils import column_index_from_string
+from openpyxl.styles import Border, Side
 import xlwings as xw
 from PyPDF2 import PdfMerger
-import win32print
-import win32api
-import time
-import subprocess
+import sys
 
 
+def resourece_path(rel_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, rel_path)
 def DUDBC_RateWriter(databasepath):
 
     def create_connection(db_file):
@@ -898,6 +900,7 @@ def DUDBC_Extractor(searchmode, searchvalue, resourcetype = ""):
         }
 
     db_path = "DUDBC_RateAnalysis.db"
+    db_path = resourece_path(db_path)
 
     with SuperDataExtractor(db_path) as extractor:
         # Perform the search
@@ -999,6 +1002,7 @@ class GUIDatabase:
     #2. Enforce the code for writing to that key
     def __init__(self, db_name="estimation.db", init_db=True):
         if init_db:
+            db_name  = resourece_path(db_name)
             if os.path.exists(db_name):
                 os.remove(db_name)
 
@@ -1090,11 +1094,11 @@ class GUIDatabase:
             except Exception:
                 return str(obj)  # fallback if no .text attr
 
-        def safe_float(val, default=0.0):
+        def safe_float(val):
             try:
                 return float(val)
             except (ValueError, TypeError):
-                return default
+                return val
 
         def derive_Number(val, default=0.0):
             try:
@@ -1209,7 +1213,8 @@ class GUIDatabase:
 #_________________-Check below
 
     def save_appliedRateAnalysis(self, item_number, appliedRateData):
-        conn = sqlite3.connect("estimation.db")
+        db_name = resourece_path("estimation.db")
+        conn = sqlite3.connect(db_name)
         c = conn.cursor()
 
         # First remove all rows with this item_number
@@ -1468,6 +1473,13 @@ class DB_Output:
             FROM General_Info
         """)
         return self.cursor.fetchall()
+    def fetch_PrimaryKeys(self):
+        """Fetch all data from General_Info table"""
+        self.cursor.execute("""
+            SELECT contingency ,        vat ,        physical_contingency ,        priceadjustment_contingency 
+            FROM Primary_keys
+        """)
+        return self.cursor.fetchall()
 
     def fetch_quantityEstimation(self):
         """Fetch all data from quantity_estimation table"""
@@ -1625,29 +1637,106 @@ class DB_Output:
             cell.alignment = self.center_align
             row += 1
 
-            row += 1
-            mergerrows = f"{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][0]}{row}:{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][1]}{row}"
-            ws.merge_cells(mergerrows)
-            cell = ws.cell(row=row, column=1)
-            cell.value = f"योजनाको नामः {projectname}"
-            cell.font = self.KMbold_font
-            row += 1
+            if self.sheetnames[sheet] != "Cover":
+                row += 1
+                mergerrows = f"{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][0]}{row}:{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][1]}{row}"
+                ws.merge_cells(mergerrows)
+                cell = ws.cell(row=row, column=1)
+                cell.value = f"योजनाको नामः {projectname}"
+                cell.font = self.KMbold_font
+                row += 1
 
-            ws.merge_cells(f"A{row}:C{row}")
-            cell = ws.cell(row=row, column=1)
-            cell.value = f"योजना स्थलः {projectlocation}।"
-            cell.font = self.KMbold_font
-            #
-            # Fiscal year
-            mergerrows = f"{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][2]}{row}:{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][1]}{row}"
-            ws.merge_cells(mergerrows)
-            cell = ws[f"{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][2]}{row}"]
-            cell.value=f"F.Y.: {fiscalyear}"
+                ws.merge_cells(f"A{row}:C{row}")
+                cell = ws.cell(row=row, column=1)
+                cell.value = f"योजना स्थलः {projectlocation}।"
+                cell.font = self.KMbold_font
+
+                # Fiscal year
+                mergerrows = f"{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][2]}{row}:{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][1]}{row}"
+                ws.merge_cells(mergerrows)
+                cell = ws[f"{self.sheetnamesTITLEMerger_Range[self.sheetnames[sheet]][2]}{row}"]
+                cell.value=f"F.Y.: {fiscalyear}"
 
 
         wb.save(self.excel_name)
         print(f"Data exported successfully to {self.excel_name}")
         wb.close()
+        return True
+    def CoverPage_Writing(self):
+        # Load the existing workbook
+        record = self.fetch_general_info()[0]
+
+        office_full, projectname, officeCode, projectlocation, completion_time, fiscalyear, budgetsubheadingno = record
+
+        wb = op.load_workbook(self.excel_name)  # 👈 change filename if needed
+        if "Cover" in wb.sheetnames:
+            ws = wb["Cover"]
+        else:
+            print("Cover' not found!")
+            exit()
+        row = ws.max_row + 1       #From here the writing needs to be started
+
+        #Establishing the definite column widths
+        column_widths = [8,8,12,8,8,8,8,4,8]
+        for i, width in enumerate(column_widths, start=1):
+            ws.column_dimensions[chr(64 + i)].width = width
+
+        sheettitle = "विस्तृत परिमाण र लागत अनुमान"
+        mergerrows = f"A5:I6"
+        ws.merge_cells(mergerrows)
+        cell = ws.cell(row=5, column=1)
+        cell.value = f"{sheettitle}"  # Insert the gui entry to add the location of the office
+        cell.font = Font(name="Kalimati", bold=False, size=20)
+        cell.alignment = self.center_align
+
+
+        # Define a thick border style           # Define columns for vertical lines (e.g., B, E, and H)
+        thick = Side(border_style="thick", color="000000")
+        both_border = Border(right=thick, left=thick)
+        right_border = Border(right=thick)
+        line_columns = ['D', 'E']
+        # Define line height (rows)
+        for col in line_columns:
+            for index, row in enumerate(range(8, 17)):  # Adjust height (rows 2 to 30)
+                if index == 0:
+                    if col == line_columns[0]:
+                        ws[f"{col}{row}"].border = right_border
+                        print(row, col)
+                elif index == 8:
+                    if col == line_columns[0]:
+
+                        ws[f"{col}{row}"].border = right_border
+                else:
+                    ws[f"{col}{row}"].border = both_border
+
+
+        mergerrows = f"A18:I18"
+        ws.merge_cells(mergerrows)
+        cell = ws.cell(row=18, column=1)
+        cell.value = f"योजनाको नामः {projectname}"
+        cell.font = Font(name="Kalimati", bold=True, size=14)
+        cell.alignment = self.center_align
+
+        mergerrows = f"A19:I19"
+        ws.merge_cells(mergerrows)
+        cell = ws.cell(row=19, column=1)
+        cell.value = f"योजना स्थलः {projectlocation}।"
+        cell.font = Font(name="Kalimati", bold=True, size=14)
+        cell.alignment = self.center_align
+
+        mergerrows = f"A20:I20"
+        ws.merge_cells(mergerrows)
+        cell = ws.cell(row=20, column=1)
+        cell.value = f"आर्थिक वर्ष: {fiscalyear}।"
+        cell.font = Font(name="Kalimati", bold=True, size=14)
+        cell.alignment = self.center_align
+
+
+
+        wb.save(self.excel_name)
+        print(f"Data written successfully to Cover in {self.excel_name}")
+        wb.close()
+        return True
 
     def QuantityEstSheet_Writing(self):
         # Load the existing workbook
@@ -1677,7 +1766,7 @@ class DB_Output:
                 cell.border = self.thin_border
 
             # Optional: Adjust column widths for readability
-            column_widths = [5, 30, 5, 4.5, 8, 9, 8, 8, 10]
+            column_widths = [5, 25, 5, 4.5, 7, 7, 7, 7, 8]
             for i, width in enumerate(column_widths, start=1):
                 ws.column_dimensions[chr(64 + i)].width = width
             return row
@@ -1714,7 +1803,8 @@ class DB_Output:
         wb.save(self.excel_name)
         print(f"Data written successfully to Quantity Estimation in {self.excel_name}")
         wb.close()
-        return   itemNo_List, trimmedData, categorizedData,bulkedData, segregated_dict
+        # return   itemNo_List, trimmedData, categorizedData,bulkedData, segregated_dict
+        return True
 
     def AOC_writing(self):
         DescriptionTitle_index = 1  #Zero based indexing
@@ -1750,7 +1840,7 @@ class DB_Output:
 
 
             # Optional: Adjust column widths for readability
-            column_widths = [5, 40, 7, 8, 8, 10, 8]
+            column_widths = [5, 30, 7, 7, 8, 10, 7]
             for i, width in enumerate(column_widths, start=1):
                 ws.column_dimensions[chr(64 + i)].width = width
             return row
@@ -1792,8 +1882,6 @@ class DB_Output:
                 AOCLine.append(amount)
                 AOCLine.append(None)
                 AOCList.append(AOCLine)
-
-
             return AOCList
         def SumCCertiaIndex(aoc_list, index = -2):
             return sum(row[-2] for row in aoc_list if isinstance(row[-2], (int, float)))
@@ -1820,15 +1908,41 @@ class DB_Output:
             row += 1  # move to next row after writing one line
 
         #___________________________________________________________________Processing and Writing
+        def safe_float(val):
+            try:
+                return float(val)
+            except:
+                return val
+
+        cont_, VAT_, physicalCont_, priceAdjCont_ = self.fetch_PrimaryKeys()[0]
+        cont_, VAT_, physicalCont_, priceAdjCont_ = safe_float(cont_), safe_float(VAT_), safe_float(physicalCont_), safe_float(priceAdjCont_)
+        print(cont_, VAT_, physicalCont_, priceAdjCont_ )
+
 
         TotalCivilAmount = SumCCertiaIndex(AOCList, index=-2)
-        VATAmount = 0.13 * TotalCivilAmount
-        #Contingencies amount ___________Compute after confirmation
-        OfficeContigency = 0.04 * TotalCivilAmount
-        TotelProjectCost = TotalCivilAmount + VATAmount + OfficeContigency  #Total project cost including, contigencies, PS, Vat and Civil works
+        VATPercentage = VAT_/100 if  isinstance(VAT_, float) else 0.13
+        VATAmount = VATPercentage* TotalCivilAmount
 
-        VerticalHeaders = ["Sub Total", "VAT Amount (13% of Sub Total)", "Contingency (4% of Sub Total)", "Total Project Cost (including VAT PS & Contingencies)"]
-        VerticalValues = [TotalCivilAmount, VATAmount, OfficeContigency, TotelProjectCost]
+        #Contingencies amount ___________Compute after confirmation
+        OfficeContigencyPercentage =  cont_/100 if  isinstance(cont_, float) else 0.13
+        OfficeContigency = OfficeContigencyPercentage * TotalCivilAmount
+
+        PhysicalContigencyPercentage =  physicalCont_/100 if  isinstance(physicalCont_, float) else 0.10
+        PhysicalContigency = PhysicalContigencyPercentage * TotalCivilAmount
+
+        PriceAdjContigencyPercentage =  priceAdjCont_/100 if  isinstance(priceAdjCont_, float) else 0.10
+        PriceAdjContigency = PriceAdjContigencyPercentage * TotalCivilAmount
+
+
+        TotelProjectCost = TotalCivilAmount + VATAmount + OfficeContigency + PhysicalContigency + PriceAdjContigency #Total project cost including, contigencies, PS, Vat and Civil works
+
+        VerticalHeaders = ["Sub Total",
+                           f"VAT Amount ({VATPercentage *100}% of Sub Total)",
+                           f"Contingency ({OfficeContigencyPercentage * 100}% of Sub Total)",
+                           f"Physical Contingency ({PhysicalContigencyPercentage * 100}% of Sub Total)",
+                           f"Price Adjustment Contingency ({PriceAdjContigencyPercentage * 100}% of Sub Total)",
+                           "Total Project Cost (including VAT PS & Contingencies)"]
+        VerticalValues = [TotalCivilAmount, VATAmount, OfficeContigency, PhysicalContigency, PriceAdjContigency, TotelProjectCost]
 
         startrow =             row
         for header, value in zip(VerticalHeaders, VerticalValues):
@@ -1856,6 +1970,7 @@ class DB_Output:
         wb.save(self.excel_name)
         print(f"Data written successfully to Abstract of Cost in {self.excel_name}")
         wb.close()
+        return True
 
     def SummaryWriting(self):
         DescriptionTitle_index = 1  #Zero based indexing
@@ -1874,7 +1989,7 @@ class DB_Output:
             mergerrows = f"{self.sheetnamesTITLEMerger_Range['Summary'][0]}{row}:{self.sheetnamesTITLEMerger_Range['Summary'][1]}{row}"
             ws.merge_cells(mergerrows)
             cell = ws.cell(row=row, column=1)
-            cell.value = f"Abstract of Cost {12}"
+            cell.value = f"Quantity Summary"
             cell.font = self.Special_font
             cell.alignment = self.center_align
             row += 1
@@ -1889,7 +2004,7 @@ class DB_Output:
 
 
             # Optional: Adjust column widths for readability
-            column_widths = [5, 45, 12, 10, 12]
+            column_widths = [5, 38, 10, 10, 10]
             for i, width in enumerate(column_widths, start=1):
                 ws.column_dimensions[chr(64 + i)].width = width
             return row
@@ -1953,6 +2068,7 @@ class DB_Output:
         wb.save(self.excel_name)
         print(f"Data written successfully to Summary in {self.excel_name}")
         wb.close()
+        return True
 
     def BOQ_Writing(self):
         DescriptionTitle_index = 1  #Zero based indexing
@@ -1989,7 +2105,7 @@ class DB_Output:
 
 
             # Optional: Adjust column widths for readability
-            column_widths = [4, 25, 6, 7, 12, 20, 12]
+            column_widths = [4, 15, 6, 7, 11, 20, 11]
             for i, width in enumerate(column_widths, start=1):
                 ws.column_dimensions[chr(64 + i)].width = width
             return row
@@ -2085,6 +2201,7 @@ class DB_Output:
         wb.save(self.excel_name)
         print(f"Data written successfully to BOQ in {self.excel_name}")
         wb.close()
+        return True
 
     def RateAnalysisDataWriting(self):
         itemNo_List, trimmedData, categorizedData, bulkedData, segregated_dict = self.ProcessedData_Extractor()
@@ -2221,12 +2338,13 @@ class DB_Output:
             cell = ws.cell(row=r, column=1)  # Column A
             cell.alignment = self.right_align
 
-        column_widths = [4, 14, 15, 8, 6, 16, 10, 12]
+        column_widths = [4, 10, 12, 7, 6, 14, 8, 12]            #MAke total sum less than 73 else the text gets overflown
         for i, width in enumerate(column_widths, start=1):
             ws.column_dimensions[chr(64 + i)].width = width
 
         wb.save(self.excel_name)
         print("Excel file created: RateAnalysis_Output.xlsx")
+        return True
 
     def PostProcessingExcel(self):
         wb = op.load_workbook(self.excel_name)  # 👈 change filename if needed
@@ -2248,9 +2366,9 @@ class DB_Output:
             ws.page_setup.scale = 100  # ensure Excel applies scaling
 
             # Reduce margins
-            ws.page_margins.left = 0.25
-            ws.page_margins.right = 0.25
-            ws.page_margins.top = 0.25
+            ws.page_margins.left = 0.5
+            ws.page_margins.right = 0.5
+            ws.page_margins.top = 0.5
             ws.page_margins.bottom = 0.75
 
             ws.freeze_panes = ws[f"A{freezingRow}"]  # everything above row 8 is frozen (rows 1–7)
@@ -2267,6 +2385,7 @@ class DB_Output:
 
         wb.save(self.excel_name)
         print("Excel file formatted successfully")
+        return True
 
 
     def excel_to_pdf_merge(self):
@@ -2297,14 +2416,16 @@ class DB_Output:
         # Cleanup
         for pdf in temp_pdfs:
             os.remove(pdf)
+        return True
 
     def PrintPDF(self):
         os.startfile(self.pdf_path, "print")         #Ensure to set the default printer from settings(set windows chooes = false, and set the printer as default)
-
+        return True
 
 
 # db_out = DB_Output()
 # db_out.SheetsTitle_Writing()    #When the erroro of the io ie file not found occurs then enforce the Sheets Title function
+# db_out.CoverPage_Writing()
 # db_out.QuantityEstSheet_Writing()
 # db_out.AOC_writing()
 # db_out.SummaryWriting()

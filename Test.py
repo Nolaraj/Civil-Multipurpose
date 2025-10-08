@@ -1,102 +1,52 @@
 # main.py
 from kivy.uix.screenmanager import ScreenManager, Screen
-from kivymd.uix.gridlayout import MDGridLayout
 from kivymd.uix.scrollview import MDScrollView
 from kivy.uix.filechooser import FileChooserListView
-from kivy.core.window import Window
 import pandas as pd
-import os
 from kivy.factory import Factory
-from kivy.properties import BooleanProperty
 from kivy.core.text import LabelBase
 import InputData as ID
-from kivymd.uix.menu import MDDropdownMenu
 import DatabaseManagement as DM
 from kivy.resources import resource_add_path
 from kivy.graphics import Color, RoundedRectangle
 from kivymd.uix.snackbar import MDSnackbar
-from kivymd.uix.dialog import (
-    MDDialog,
-    MDDialogHeadlineText,
-    MDDialogContentContainer,
-    MDDialogButtonContainer,
-)
+from kivymd.uix.dialog import (    MDDialogButtonContainer,)
 from kivymd.uix.button import MDButton, MDButtonIcon, MDButtonText
 from math import prod
 from kivy.graphics import Color, Rectangle
-from kivy.utils import get_color_from_hex
-import sqlite3
-from kivy.properties import NumericProperty, StringProperty, BooleanProperty, ListProperty, ObjectProperty, \
-    ColorProperty
-from kivy.lang import Builder
-from kivymd.app import MDApp
-from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.button import MDButton
-from kivymd.uix.label import MDLabel
-from kivymd.uix.textfield import MDTextField
+from kivy.properties import NumericProperty, BooleanProperty, ListProperty, ObjectProperty
 from typing import Optional, Any, Dict
-from kivy.uix.widget import Widget
-from kivy.clock import Clock
 from kivy.uix.popup import Popup
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.scrollview import ScrollView
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
-from kivy.uix.button import Button
-from kivy.metrics import dp
-from kivy.metrics import dp
-from kivy.uix.scrollview import ScrollView
 from kivy.uix.widget import Widget
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.anchorlayout import AnchorLayout
-
-from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.card import MDCard
-from kivymd.uix.label import MDLabel
 from kivymd.uix.textfield import MDTextField
-from kivymd.uix.textfield import MDTextField
-from kivymd.uix.button import MDButton
-from kivymd.uix.dialog import MDDialog
-from kivy.uix.modalview import ModalView
-from kivy.metrics import dp
-from kivymd.uix.card import MDCard
-from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.button import Button
-from kivy.metrics import dp
-from kivy.app import App
 from kivymd.uix.selectioncontrol import MDCheckbox
-from datetime import datetime
-import json
-import json
 from datetime import datetime
 from kivy.clock import Clock
 from kivymd.uix.dialog import MDDialog, MDDialogHeadlineText, MDDialogContentContainer
 from kivymd.uix.progressindicator import MDCircularProgressIndicator
-from kivy.uix.boxlayout import BoxLayout
-from kivy.lang import Builder
-from kivy.core.window import Window
 from kivy.utils import get_color_from_hex
-from kivy.properties import StringProperty
-from kivymd.app import MDApp
-from kivymd.uix.dialog import MDDialog
 import json, os
 from kivy.lang import Builder
 from kivy.metrics import dp
-from kivy.uix.scrollview import ScrollView
-from kivy.uix.boxlayout import BoxLayout
-
-from kivymd.app import MDApp
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.card import MDCard
 from kivymd.uix.button import MDButton
 from kivymd.uix.label import MDLabel
 from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.divider import MDDivider
-from kivymd.uix.button import MDIconButton
-
-from kivy.storage.jsonstore import JsonStore
-
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.scrollview import ScrollView
+from kivy.core.window import Window
+from kivymd.app import MDApp
+from kivymd.uix.card import MDCard
+from kivymd.uix.label import MDLabel
+from kivymd.uix.button import MDExtendedFabButton, MDExtendedFabButtonIcon, MDExtendedFabButtonText
+from kivymd.uix.behaviors import HoverBehavior
+import webbrowser
+import sys
 
 objects_cache = {
     "Estimation_Data": {
@@ -104,6 +54,13 @@ objects_cache = {
     }
 }
 # Global cache for all dynamically created estimation GUI objects
+def resourece_path(rel_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, rel_path)
 def safe_float(value):
     try:
         return float(value)
@@ -349,19 +306,45 @@ class MainScreen(Screen):
 
                 db_out = DM.DB_Output()
 
-                db_out.SheetsTitle_Writing()
-                db_out.QuantityEstSheet_Writing()
-                db_out.AOC_writing()
-                db_out.SummaryWriting()
-                db_out.BOQ_Writing()
-                db_out.RateAnalysisDataWriting()
+                def toasttextconfiner(boolval, val):
+                    if boolval:
+                        return f"Data written successfully to {val}"
+                    else:
+                        return f"Writing failed to {val}"
+
+
+
+                titleret = db_out.SheetsTitle_Writing()  # When the erroro of the io ie file not found occurs then enforce the Sheets Title function
+                app.toast(toasttextconfiner(titleret, "SheetsTitle"))
+                coverret = db_out.CoverPage_Writing()
+                app.toast(toasttextconfiner(coverret, "Cover Page"))
+
+                qestret = db_out.QuantityEstSheet_Writing()
+                app.toast(toasttextconfiner(qestret, "Quantity Estimation sheet"))
+
+                aocret = db_out.AOC_writing()
+                app.toast(toasttextconfiner(aocret, "Abstract of Cost"))
+
+                summaryret = db_out.SummaryWriting()
+                app.toast(toasttextconfiner(summaryret, "Summary sheet"))
+
+                boqret = db_out.BOQ_Writing()
+                app.toast(toasttextconfiner(boqret, "BOQ sheet"))
+
+                rateanalysisret = db_out.RateAnalysisDataWriting()
+                app.toast(toasttextconfiner(rateanalysisret, "Rate Analysis sheet"))
+
+                postproret = db_out.PostProcessingExcel()
+                app.toast(toasttextconfiner(postproret, "Postprocessing criteria"))
+
 
                 if valuesDict["pdf"]:
-                    db_out.excel_to_pdf_merge()
+                    excelpdtoutret = db_out.excel_to_pdf_merge()
+                    app.toast(toasttextconfiner(postproret, "Excel to PDF format"))
+
                 if valuesDict["print"]:
-                    db_out.PrintPDF()
-
-
+                    printpdfret = db_out.PrintPDF()
+                    app.toast(toasttextconfiner(postproret, "Printer"))
 
                 popup.dismiss()
             except Exception as e:
@@ -374,8 +357,20 @@ class MainScreen(Screen):
 
         def on_cancel(instance):
             popup.dismiss()
-
-
+    def click_item(self):
+        inspector = GUIInspector(root_widget=self)  # use self.root, not app.root
+        widget = inspector.get_widget_by_id("NewItemButton")
+        if widget:
+            widget.dispatch("on_release")
+        else:
+            print("Widget with id 'ITem' not found!")
+    def click_NewSection(self):
+        inspector = GUIInspector(root_widget=self)  # use self.root, not app.root
+        widget = inspector.get_widget_by_id("NewSectionButton")
+        if widget:
+            widget.dispatch("on_release")
+        else:
+            print("Widget with id 'ITem' not found!")
 class EstimationScreen(Screen):
     pass
 class DesignScreen(Screen):
@@ -544,6 +539,7 @@ class EstimationPart(BoxLayout):
                 app.gui_DB.delete_SubItemData_(value)
             #For the deletion of the data from the rate ana
             # print(objects_cache["Estimation_Data"]["Estimation_Sections"].keys())
+
 
     def click_subitem(self):
         inspector = GUIInspector(root_widget=self)  # use self.root, not app.root
@@ -1047,7 +1043,12 @@ class ContentField(MDTextField):
         idx = siblings.index(self)
         next_idx = (idx + 1) % len(siblings) if forward else (idx - 1) % len(siblings)
         siblings[next_idx].focus = True
+class HoverFab(MDExtendedFabButton, HoverBehavior):
+    def on_enter(self, *args):
+        self.fab_state = "expand"
 
+    def on_leave(self, *args):
+        self.fab_state = "collapse"
 
 # Academic Software Themes for KivyMD
 # Optimized for readability, focus, and extended use
@@ -1965,6 +1966,982 @@ THEMES = {
         "tertiaryFixedDimColor": "#B4F1B8",
         "tertiary_paletteKeyColorColor": "#1A7F37",
         "transparentColor": "#00000000"
+    },
+
+    "classic_light": {
+        "backgroundColor": "#FAFAFA",
+        "disabledTextColor": "#9E9E9E",
+        "errorColor": "#B00020",
+        "errorContainerColor": "#F9DEDC",
+        "inverseOnSurfaceColor": "#F5F5F5",
+        "inversePrimaryColor": "#90CAF9",
+        "inverseSurfaceColor": "#212121",
+        "neutral_paletteKeyColorColor": "#757575",
+        "neutral_variant_paletteKeyColorColor": "#616161",
+        "onBackgroundColor": "#1A1A1A",
+        "onErrorColor": "#FFFFFF",
+        "onErrorContainerColor": "#410002",
+        "onPrimaryColor": "#FFFFFF",
+        "onPrimaryContainerColor": "#001D36",
+        "onPrimaryFixedColor": "#001D36",
+        "onPrimaryFixedVariantColor": "#004A77",
+        "onSecondaryColor": "#FFFFFF",
+        "onSecondaryContainerColor": "#1A1A1A",
+        "onSecondaryFixedColor": "#0A1929",
+        "onSecondaryFixedVariantColor": "#455A64",
+        "onSurfaceColor": "#1A1A1A",
+        "onSurfaceLightColor": "#424242",
+        "onSurfaceVariantColor": "#424242",
+        "onTertiaryColor": "#FFFFFF",
+        "onTertiaryContainerColor": "#1A1A1A",
+        "onTertiaryFixedColor": "#2E1E00",
+        "onTertiaryFixedVariantColor": "#5D4E2A",
+        "outlineColor": "#757575",
+        "outlineVariantColor": "#C2C2C2",
+        "primaryColor": "#1976D2",
+        "primaryContainerColor": "#BBDEFB",
+        "primaryFixedColor": "#D6E9FF",
+        "primaryFixedDimColor": "#90CAF9",
+        "primary_paletteKeyColorColor": "#1976D2",
+        "rippleColor": "#1976D233",
+        "scrimColor": "#000000",
+        "secondaryColor": "#546E7A",
+        "secondaryContainerColor": "#CFE8FC",
+        "secondaryFixedColor": "#D1E8FF",
+        "secondaryFixedDimColor": "#B0BEC5",
+        "secondary_paletteKeyColorColor": "#81A1C1",
+        "shadowColor": "#00000033",
+        "surfaceBrightColor": "#ECEFF4",
+        "surfaceColor": "#ECEFF4",
+        "surfaceContainerColor": "#E5E9F0",
+        "surfaceContainerHighColor": "#D8DEE9",
+        "surfaceContainerHighestColor": "#D0D7E3",
+        "surfaceContainerLowColor": "#E9EDF3",
+        "surfaceContainerLowestColor": "#F5F7FA",
+        "surfaceDimColor": "#E0E5EB",
+        "surfaceTintColor": "#5E81AC",
+        "surfaceVariantColor": "#D8DEE9",
+        "tertiaryColor": "#88C0D0",
+        "tertiaryContainerColor": "#E5F0F3",
+        "tertiaryFixedColor": "#EDF5F7",
+        "tertiaryFixedDimColor": "#C8E2E8",
+        "tertiary_paletteKeyColorColor": "#8FBCBB",
+        "transparentColor": "#00000000"
+    },
+
+    "gruvbox_light": {
+        "backgroundColor": "#FBF1C7",
+        "disabledTextColor": "#A89984",
+        "errorColor": "#CC241D",
+        "errorContainerColor": "#F9D7D5",
+        "inverseOnSurfaceColor": "#F9F5D7",
+        "inversePrimaryColor": "#458588",
+        "inverseSurfaceColor": "#282828",
+        "neutral_paletteKeyColorColor": "#7C6F64",
+        "neutral_variant_paletteKeyColorColor": "#665C54",
+        "onBackgroundColor": "#282828",
+        "onErrorColor": "#FFFFFF",
+        "onErrorContainerColor": "#3C0A00",
+        "onPrimaryColor": "#FFFFFF",
+        "onPrimaryContainerColor": "#001E2B",
+        "onPrimaryFixedColor": "#001E2B",
+        "onPrimaryFixedVariantColor": "#003F58",
+        "onSecondaryColor": "#FFFFFF",
+        "onSecondaryContainerColor": "#1F2B00",
+        "onSecondaryFixedColor": "#1F2B00",
+        "onSecondaryFixedVariantColor": "#3F5700",
+        "onSurfaceColor": "#282828",
+        "onSurfaceLightColor": "#3C3836",
+        "onSurfaceVariantColor": "#504945",
+        "onTertiaryColor": "#FFFFFF",
+        "onTertiaryContainerColor": "#2D1700",
+        "onTertiaryFixedColor": "#2D1700",
+        "onTertiaryFixedVariantColor": "#5A3800",
+        "outlineColor": "#928374",
+        "outlineVariantColor": "#EBDBB2",
+        "primaryColor": "#458588",
+        "primaryContainerColor": "#D5E4E8",
+        "primaryFixedColor": "#E3EFF2",
+        "primaryFixedDimColor": "#BDD6DC",
+        "primary_paletteKeyColorColor": "#458588",
+        "rippleColor": "#45858833",
+        "scrimColor": "#000000",
+        "secondaryColor": "#98971A",
+        "secondaryContainerColor": "#E8E5C8",
+        "secondaryFixedColor": "#F2EFCC",
+        "secondaryFixedDimColor": "#D9D6A3",
+        "secondary_paletteKeyColorColor": "#98971A",
+        "shadowColor": "#00000033",
+        "surfaceBrightColor": "#FBF1C7",
+        "surfaceColor": "#FBF1C7",
+        "surfaceContainerColor": "#F2E5BC",
+        "surfaceContainerHighColor": "#EBDBB2",
+        "surfaceContainerHighestColor": "#E0CFA1",
+        "surfaceContainerLowColor": "#F9F5D7",
+        "surfaceContainerLowestColor": "#FFFBDD",
+        "surfaceDimColor": "#F2E5BC",
+        "surfaceTintColor": "#458588",
+        "surfaceVariantColor": "#EBDBB2",
+        "tertiaryColor": "#D65D0E",
+        "tertiaryContainerColor": "#FADEC9",
+        "tertiaryFixedColor": "#FFE9D5",
+        "tertiaryFixedDimColor": "#F4D0A3",
+        "tertiary_paletteKeyColorColor": "#D65D0E",
+        "transparentColor": "#00000000"
+    },
+
+    "catppuccin_latte": {
+        "backgroundColor": "#EFF1F5",
+        "disabledTextColor": "#9CA0B0",
+        "errorColor": "#D20F39",
+        "errorContainerColor": "#F4DBE0",
+        "inverseOnSurfaceColor": "#E6E9EF",
+        "inversePrimaryColor": "#7287FD",
+        "inverseSurfaceColor": "#1E1E2E",
+        "neutral_paletteKeyColorColor": "#6C6F85",
+        "neutral_variant_paletteKeyColorColor": "#5C5F77",
+        "onBackgroundColor": "#1E1E2E",
+        "onErrorColor": "#FFFFFF",
+        "onErrorContainerColor": "#410002",
+        "onPrimaryColor": "#FFFFFF",
+        "onPrimaryContainerColor": "#001847",
+        "onPrimaryFixedColor": "#001847",
+        "onPrimaryFixedVariantColor": "#003976",
+        "onSecondaryColor": "#FFFFFF",
+        "onSecondaryContainerColor": "#001B3D",
+        "onSecondaryFixedColor": "#001B3D",
+        "onSecondaryFixedVariantColor": "#00396E",
+        "onSurfaceColor": "#1E1E2E",
+        "onSurfaceLightColor": "#4C4F69",
+        "onSurfaceVariantColor": "#5C5F77",
+        "onTertiaryColor": "#FFFFFF",
+        "onTertiaryContainerColor": "#1F1A3C",
+        "onTertiaryFixedColor": "#1F1A3C",
+        "onTertiaryFixedVariantColor": "#3E3660",
+        "outlineColor": "#7C7F93",
+        "outlineVariantColor": "#CCD0DA",
+        "primaryColor": "#1E66F5",
+        "primaryContainerColor": "#D4E1FF",
+        "primaryFixedColor": "#E0EBFF",
+        "primaryFixedDimColor": "#ADC6FF",
+        "primary_paletteKeyColorColor": "#1E66F5",
+        "rippleColor": "#1E66F533",
+        "scrimColor": "#000000",
+        "secondaryColor": "#04A5E5",
+        "secondaryContainerColor": "#CEE9F7",
+        "secondaryFixedColor": "#E0F3FF",
+        "secondaryFixedDimColor": "#A6D8F0",
+        "secondary_paletteKeyColorColor": "#04A5E5",
+        "shadowColor": "#00000033",
+        "surfaceBrightColor": "#EFF1F5",
+        "surfaceColor": "#EFF1F5",
+        "surfaceContainerColor": "#E6E9EF",
+        "surfaceContainerHighColor": "#DCE0E8",
+        "surfaceContainerHighestColor": "#CCD0DA",
+        "surfaceContainerLowColor": "#E9ECF0",
+        "surfaceContainerLowestColor": "#FFFFFF",
+        "surfaceDimColor": "#DFE1E8",
+        "surfaceTintColor": "#1E66F5",
+        "surfaceVariantColor": "#DCE0E8",
+        "tertiaryColor": "#8839EF",
+        "tertiaryContainerColor": "#E8DBFF",
+        "tertiaryFixedColor": "#F2E7FF",
+        "tertiaryFixedDimColor": "#D5BAFF",
+        "tertiary_paletteKeyColorColor": "#8839EF",
+        "transparentColor": "#00000000"
+    },
+
+    "dracula": {
+        "backgroundColor": "#282A36",
+        "disabledTextColor": "#6272A4",
+        "errorColor": "#FF5555",
+        "errorContainerColor": "#5C0F13",
+        "inverseOnSurfaceColor": "#2E3142",
+        "inversePrimaryColor": "#BD93F9",
+        "inverseSurfaceColor": "#F8F8F2",
+        "neutral_paletteKeyColorColor": "#6272A4",
+        "neutral_variant_paletteKeyColorColor": "#44475A",
+        "onBackgroundColor": "#F8F8F2",
+        "onErrorColor": "#2B0000",
+        "onErrorContainerColor": "#FFD6D9",
+        "onPrimaryColor": "#2B0048",
+        "onPrimaryContainerColor": "#EEDDFF",
+        "onPrimaryFixedColor": "#2B0048",
+        "onPrimaryFixedVariantColor": "#5A0097",
+        "onSecondaryColor": "#002B3D",
+        "onSecondaryContainerColor": "#C9F0FF",
+        "onSecondaryFixedColor": "#001F2A",
+        "onSecondaryFixedVariantColor": "#004F6A",
+        "onSurfaceColor": "#F8F8F2",
+        "onSurfaceLightColor": "#E8E8E0",
+        "onSurfaceVariantColor": "#C2C4D4",
+        "onTertiaryColor": "#00381F",
+        "onTertiaryContainerColor": "#BFFFD9",
+        "onTertiaryFixedColor": "#002112",
+        "onTertiaryFixedVariantColor": "#00533A",
+        "outlineColor": "#6272A4",
+        "outlineVariantColor": "#44475A",
+        "primaryColor": "#BD93F9",
+        "primaryContainerColor": "#5A0097",
+        "primaryFixedColor": "#EEDDFF",
+        "primaryFixedDimColor": "#D5BAFF",
+        "primary_paletteKeyColorColor": "#BD93F9",
+        "rippleColor": "#BD93F933",
+        "scrimColor": "#000000",
+        "secondaryColor": "#8BE9FD",
+        "secondaryContainerColor": "#004F6A",
+        "secondaryFixedColor": "#C9F0FF",
+        "secondaryFixedDimColor": "#5DD4F0",
+        "secondary_paletteKeyColorColor": "#8BE9FD",
+        "shadowColor": "#000000",
+        "surfaceBrightColor": "#383A4A",
+        "surfaceColor": "#282A36",
+        "surfaceContainerColor": "#21222C",
+        "surfaceContainerHighColor": "#2F3241",
+        "surfaceContainerHighestColor": "#3A3C4C",
+        "surfaceContainerLowColor": "#1E1F29",
+        "surfaceContainerLowestColor": "#191A21",
+        "surfaceDimColor": "#21222C",
+        "surfaceTintColor": "#BD93F9",
+        "surfaceVariantColor": "#2F3241",
+        "tertiaryColor": "#50FA7B",
+        "tertiaryContainerColor": "#00533A",
+        "tertiaryFixedColor": "#BFFFD9",
+        "tertiaryFixedDimColor": "#34E89E",
+        "tertiary_paletteKeyColorColor": "#50FA7B",
+        "transparentColor": "#00000000"
+    },
+
+    "tokyo_night": {
+        "backgroundColor": "#1A1B26",
+        "disabledTextColor": "#565F89",
+        "errorColor": "#F7768E",
+        "errorContainerColor": "#5C0F1E",
+        "inverseOnSurfaceColor": "#24283B",
+        "inversePrimaryColor": "#7AA2F7",
+        "inverseSurfaceColor": "#D5D6DB",
+        "neutral_paletteKeyColorColor": "#565F89",
+        "neutral_variant_paletteKeyColorColor": "#414868",
+        "onBackgroundColor": "#C0CAF5",
+        "onErrorColor": "#2B0000",
+        "onErrorContainerColor": "#FFD6DD",
+        "onPrimaryColor": "#001A41",
+        "onPrimaryContainerColor": "#D6E3FF",
+        "onPrimaryFixedColor": "#001A41",
+        "onPrimaryFixedVariantColor": "#003C7E",
+        "onSecondaryColor": "#002133",
+        "onSecondaryContainerColor": "#BDE9FF",
+        "onSecondaryFixedColor": "#001E2E",
+        "onSecondaryFixedVariantColor": "#004863",
+        "onSurfaceColor": "#C0CAF5",
+        "onSurfaceLightColor": "#A9B1D6",
+        "onSurfaceVariantColor": "#787C99",
+        "onTertiaryColor": "#00261A",
+        "onTertiaryContainerColor": "#B3F5DC",
+        "onTertiaryFixedColor": "#001A12",
+        "onTertiaryFixedVariantColor": "#004D39",
+        "outlineColor": "#565F89",
+        "outlineVariantColor": "#2C3047",
+        "primaryColor": "#7AA2F7",
+        "primaryContainerColor": "#003C7E",
+        "primaryFixedColor": "#D6E3FF",
+        "primaryFixedDimColor": "#A9C7FF",
+        "primary_paletteKeyColorColor": "#7AA2F7",
+        "rippleColor": "#7AA2F733",
+        "scrimColor": "#000000",
+        "secondaryColor": "#7DCFFF",
+        "secondaryContainerColor": "#004863",
+        "secondaryFixedColor": "#BDE9FF",
+        "secondaryFixedDimColor": "#5AC5F7",
+        "secondary_paletteKeyColorColor": "#7DCFFF",
+        "shadowColor": "#000000",
+        "surfaceBrightColor": "#2F3549",
+        "surfaceColor": "#1A1B26",
+        "surfaceContainerColor": "#16161E",
+        "surfaceContainerHighColor": "#24283B",
+        "surfaceContainerHighestColor": "#32344A",
+        "surfaceContainerLowColor": "#13131A",
+        "surfaceContainerLowestColor": "#0F0F14",
+        "surfaceDimColor": "#13141F",
+        "surfaceTintColor": "#7AA2F7",
+        "surfaceVariantColor": "#24283B",
+        "tertiaryColor": "#73DACA",
+        "tertiaryContainerColor": "#004D39",
+        "tertiaryFixedColor": "#B3F5DC",
+        "tertiaryFixedDimColor": "#4FD9B8",
+        "tertiary_paletteKeyColorColor": "#73DACA",
+        "transparentColor": "#00000000"
+    },
+
+    "monokai_pro": {
+        "backgroundColor": "#2D2A2E",
+        "disabledTextColor": "#727072",
+        "errorColor": "#FF6188",
+        "errorContainerColor": "#5C0F21",
+        "inverseOnSurfaceColor": "#39363A",
+        "inversePrimaryColor": "#A9DC76",
+        "inverseSurfaceColor": "#FCFCFA",
+        "neutral_paletteKeyColorColor": "#727072",
+        "neutral_variant_paletteKeyColorColor": "#5B595C",
+        "onBackgroundColor": "#FCFCFA",
+        "onErrorColor": "#2B0000",
+        "onErrorContainerColor": "#FFD6DD",
+        "onPrimaryColor": "#0E2000",
+        "onPrimaryContainerColor": "#C7F5A3",
+        "onPrimaryFixedColor": "#0E2000",
+        "onPrimaryFixedVariantColor": "#1F4100",
+        "onSecondaryColor": "#001D36",
+        "onSecondaryContainerColor": "#C3E7FF",
+        "onSecondaryFixedColor": "#001D36",
+        "onSecondaryFixedVariantColor": "#00426D",
+        "onSurfaceColor": "#FCFCFA",
+        "onSurfaceLightColor": "#E6E6E3",
+        "onSurfaceVariantColor": "#C1BFC4",
+        "onTertiaryColor": "#2B0048",
+        "onTertiaryContainerColor": "#EFD6FF",
+        "onTertiaryFixedColor": "#2B0048",
+        "onTertiaryFixedVariantColor": "#5A0097",
+        "outlineColor": "#939094",
+        "outlineVariantColor": "#403E41",
+        "primaryColor": "#A9DC76",
+        "primaryContainerColor": "#1F4100",
+        "primaryFixedColor": "#C7F5A3",
+        "primaryFixedDimColor": "#AFE37C",
+        "primary_paletteKeyColorColor": "#A9DC76",
+        "rippleColor": "#A9DC7633",
+        "scrimColor": "#000000",
+        "secondaryColor": "#78DCE8",
+        "secondaryContainerColor": "#00426D",
+        "secondaryFixedColor": "#C3E7FF",
+        "secondaryFixedDimColor": "#5AC4DE",
+        "secondary_paletteKeyColorColor": "#78DCE8",
+        "shadowColor": "#000000",
+        "surfaceBrightColor": "#423F43",
+        "surfaceColor": "#2D2A2E",
+        "surfaceContainerColor": "#221F22",
+        "surfaceContainerHighColor": "#39363A",
+        "surfaceContainerHighestColor": "#49464A",
+        "surfaceContainerLowColor": "#1E1B1E",
+        "surfaceContainerLowestColor": "#19171A",
+        "surfaceDimColor": "#221F22",
+        "surfaceTintColor": "#A9DC76",
+        "surfaceVariantColor": "#39363A",
+        "tertiaryColor": "#AB9DF2",
+        "tertiaryContainerColor": "#5A0097",
+        "tertiaryFixedColor": "#EFD6FF",
+        "tertiaryFixedDimColor": "#D5BAFF",
+        "tertiary_paletteKeyColorColor": "#AB9DF2",
+        "transparentColor": "#00000000"
+    },
+
+    "one_dark": {
+        "backgroundColor": "#282C34",
+        "disabledTextColor": "#5C6370",
+        "errorColor": "#E06C75",
+        "errorContainerColor": "#5C1018",
+        "inverseOnSurfaceColor": "#2C323C",
+        "inversePrimaryColor": "#61AFEF",
+        "inverseSurfaceColor": "#ABB2BF",
+        "neutral_paletteKeyColorColor": "#5C6370",
+        "neutral_variant_paletteKeyColorColor": "#4B5263",
+        "onBackgroundColor": "#ABB2BF",
+        "onErrorColor": "#2B0000",
+        "onErrorContainerColor": "#FFD6DA",
+        "onPrimaryColor": "#001D35",
+        "onPrimaryContainerColor": "#D1E4FF",
+        "onPrimaryFixedColor": "#001D35",
+        "onPrimaryFixedVariantColor": "#003E78",
+        "onSecondaryColor": "#001B3D",
+        "onSecondaryContainerColor": "#D1E4FF",
+        "onSecondaryFixedColor": "#001938",
+        "onSecondaryFixedVariantColor": "#003A6F",
+        "onSurfaceColor": "#ABB2BF",
+        "onSurfaceLightColor": "#9DA5B4",
+        "onSurfaceVariantColor": "#828997",
+        "onTertiaryColor": "#002114",
+        "onTertiaryContainerColor": "#B3F5D7",
+        "onTertiaryFixedColor": "#001A12",
+        "onTertiaryFixedVariantColor": "#00492F",
+        "outlineColor": "#6B7280",
+        "outlineVariantColor": "#3E4451",
+        "primaryColor": "#61AFEF",
+        "primaryContainerColor": "#003E78",
+        "primaryFixedColor": "#D1E4FF",
+        "primaryFixedDimColor": "#9CC7F5",
+        "primary_paletteKeyColorColor": "#61AFEF",
+        "rippleColor": "#61AFEF33",
+        "scrimColor": "#000000",
+        "secondaryColor": "#56B6C2",
+        "secondaryContainerColor": "#003A6F",
+        "secondaryFixedColor": "#D1E4FF",
+        "secondaryFixedDimColor": "#68D4E0",
+        "secondary_paletteKeyColorColor": "#56B6C2",
+        "shadowColor": "#000000",
+        "surfaceBrightColor": "#3A3F4B",
+        "surfaceColor": "#282C34",
+        "surfaceContainerColor": "#21252B",
+        "surfaceContainerHighColor": "#2C313A",
+        "surfaceContainerHighestColor": "#3A3F4B",
+        "surfaceContainerLowColor": "#1C1F26",
+        "surfaceContainerLowestColor": "#181A1F",
+        "surfaceDimColor": "#21252B",
+        "surfaceTintColor": "#61AFEF",
+        "surfaceVariantColor": "#2C313A",
+        "tertiaryColor": "#98C379",
+        "tertiaryContainerColor": "#00492F",
+        "tertiaryFixedColor": "#B3F5D7",
+        "tertiaryFixedDimColor": "#7DE5A8",
+        "tertiary_paletteKeyColorColor": "#98C379",
+        "transparentColor": "#00000000"
+    },
+
+    "material_design": {
+        "backgroundColor": "#FAFAFA",
+        "disabledTextColor": "#9E9E9E",
+        "errorColor": "#B00020",
+        "errorContainerColor": "#F9DEDC",
+        "inverseOnSurfaceColor": "#F5F5F5",
+        "inversePrimaryColor": "#BB86FC",
+        "inverseSurfaceColor": "#121212",
+        "neutral_paletteKeyColorColor": "#757575",
+        "neutral_variant_paletteKeyColorColor": "#616161",
+        "onBackgroundColor": "#212121",
+        "onErrorColor": "#FFFFFF",
+        "onErrorContainerColor": "#410002",
+        "onPrimaryColor": "#FFFFFF",
+        "onPrimaryContainerColor": "#21005D",
+        "onPrimaryFixedColor": "#21005D",
+        "onPrimaryFixedVariantColor": "#4F378B",
+        "onSecondaryColor": "#FFFFFF",
+        "onSecondaryContainerColor": "#1D192B",
+        "onSecondaryFixedColor": "#1D192B",
+        "onSecondaryFixedVariantColor": "#4A4458",
+        "onSurfaceColor": "#212121",
+        "onSurfaceLightColor": "#424242",
+        "onSurfaceVariantColor": "#49454F",
+        "onTertiaryColor": "#FFFFFF",
+        "onTertiaryContainerColor": "#31111D",
+        "onTertiaryFixedColor": "#31111D",
+        "onTertiaryFixedVariantColor": "#633B48",
+        "outlineColor": "#79747E",
+        "outlineVariantColor": "#CAC4D0",
+        "primaryColor": "#6750A4",
+        "primaryContainerColor": "#EADDFF",
+        "primaryFixedColor": "#EADDFF",
+        "primaryFixedDimColor": "#D0BCFF",
+        "primary_paletteKeyColorColor": "#6750A4",
+        "rippleColor": "#6750A433",
+        "scrimColor": "#000000",
+        "secondaryColor": "#625B71",
+        "secondaryContainerColor": "#E8DEF8",
+        "secondaryFixedColor": "#E8DEF8",
+        "secondaryFixedDimColor": "#CCC2DC",
+        "secondary_paletteKeyColorColor": "#625B71",
+        "shadowColor": "#000000",
+        "surfaceBrightColor": "#FAFAFA",
+        "surfaceColor": "#FFFBFE",
+        "surfaceContainerColor": "#F3EDF7",
+        "surfaceContainerHighColor": "#ECE6F0",
+        "surfaceContainerHighestColor": "#E6E0E9",
+        "surfaceContainerLowColor": "#F7F2FA",
+        "surfaceContainerLowestColor": "#FFFFFF",
+        "surfaceDimColor": "#DED8E1",
+        "surfaceTintColor": "#6750A4",
+        "surfaceVariantColor": "#E7E0EC",
+        "tertiaryColor": "#7D5260",
+        "tertiaryContainerColor": "#FFD8E4",
+        "tertiaryFixedColor": "#FFD8E4",
+        "tertiaryFixedDimColor": "#EFB8C8",
+        "tertiary_paletteKeyColorColor": "#7D5260",
+        "transparentColor": "#00000000"
+    },
+
+    "material_dark": {
+        "backgroundColor": "#121212",
+        "disabledTextColor": "#666666",
+        "errorColor": "#CF6679",
+        "errorContainerColor": "#93000A",
+        "inverseOnSurfaceColor": "#1C1B1F",
+        "inversePrimaryColor": "#6750A4",
+        "inverseSurfaceColor": "#E6E1E5",
+        "neutral_paletteKeyColorColor": "#8E8E8E",
+        "neutral_variant_paletteKeyColorColor": "#A1A1A1",
+        "onBackgroundColor": "#E6E1E5",
+        "onErrorColor": "#690005",
+        "onErrorContainerColor": "#FFDAD6",
+        "onPrimaryColor": "#381E72",
+        "onPrimaryContainerColor": "#EADDFF",
+        "onPrimaryFixedColor": "#21005D",
+        "onPrimaryFixedVariantColor": "#4F378B",
+        "onSecondaryColor": "#332D41",
+        "onSecondaryContainerColor": "#E8DEF8",
+        "onSecondaryFixedColor": "#1D192B",
+        "onSecondaryFixedVariantColor": "#4A4458",
+        "onSurfaceColor": "#E6E1E5",
+        "onSurfaceLightColor": "#CAC4D0",
+        "onSurfaceVariantColor": "#CAC4D0",
+        "onTertiaryColor": "#492532",
+        "onTertiaryContainerColor": "#FFD8E4",
+        "onTertiaryFixedColor": "#31111D",
+        "onTertiaryFixedVariantColor": "#633B48",
+        "outlineColor": "#938F99",
+        "outlineVariantColor": "#49454F",
+        "primaryColor": "#D0BCFF",
+        "primaryContainerColor": "#4F378B",
+        "primaryFixedColor": "#EADDFF",
+        "primaryFixedDimColor": "#D0BCFF",
+        "primary_paletteKeyColorColor": "#D0BCFF",
+        "rippleColor": "#D0BCFF33",
+        "scrimColor": "#000000",
+        "secondaryColor": "#CCC2DC",
+        "secondaryContainerColor": "#4A4458",
+        "secondaryFixedColor": "#E8DEF8",
+        "secondaryFixedDimColor": "#CCC2DC",
+        "secondary_paletteKeyColorColor": "#CCC2DC",
+        "shadowColor": "#000000",
+        "surfaceBrightColor": "#3B383E",
+        "surfaceColor": "#1C1B1F",
+        "surfaceContainerColor": "#211F26",
+        "surfaceContainerHighColor": "#2B2930",
+        "surfaceContainerHighestColor": "#36343B",
+        "surfaceContainerLowColor": "#1C1B1F",
+        "surfaceContainerLowestColor": "#0F0D13",
+        "surfaceDimColor": "#141218",
+        "surfaceTintColor": "#D0BCFF",
+        "surfaceVariantColor": "#49454F",
+        "tertiaryColor": "#EFB8C8",
+        "tertiaryContainerColor": "#633B48",
+        "tertiaryFixedColor": "#FFD8E4",
+        "tertiaryFixedDimColor": "#EFB8C8",
+        "tertiary_paletteKeyColorColor": "#EFB8C8",
+        "transparentColor": "#00000000"
+    },
+
+    "nord_dark": {
+        "backgroundColor": "#2E3440",
+        "disabledTextColor": "#4C566A",
+        "errorColor": "#BF616A",
+        "errorContainerColor": "#5C0F1A",
+        "inverseOnSurfaceColor": "#3B4252",
+        "inversePrimaryColor": "#5E81AC",
+        "inverseSurfaceColor": "#ECEFF4",
+        "neutral_paletteKeyColorColor": "#4C566A",
+        "neutral_variant_paletteKeyColorColor": "#434C5E",
+        "onBackgroundColor": "#ECEFF4",
+        "onErrorColor": "#FFFFFF",
+        "onErrorContainerColor": "#FFD6DD",
+        "onPrimaryColor": "#002033",
+        "onPrimaryContainerColor": "#D8DEE9",
+        "onPrimaryFixedColor": "#001F29",
+        "onPrimaryFixedVariantColor": "#00455E",
+        "onSecondaryColor": "#00232F",
+        "onSecondaryContainerColor": "#C9E5F5",
+        "onSecondaryFixedColor": "#001E28",
+        "onSecondaryFixedVariantColor": "#004154",
+        "onSurfaceColor": "#ECEFF4",
+        "onSurfaceLightColor": "#D8DEE9",
+        "onSurfaceVariantColor": "#C1C9D2",
+        "onTertiaryColor": "#1A2E38",
+        "onTertiaryContainerColor": "#D4E5EC",
+        "onTertiaryFixedColor": "#1F2B38",
+        "onTertiaryFixedVariantColor": "#37475A",
+        "outlineColor": "#8FBCBB",
+        "outlineVariantColor": "#4C566A",
+        "primaryColor": "#88C0D0",
+        "primaryContainerColor": "#00455E",
+        "primaryFixedColor": "#D8DEE9",
+        "primaryFixedDimColor": "#A3D4E5",
+        "primary_paletteKeyColorColor": "#88C0D0",
+        "rippleColor": "#88C0D033",
+        "scrimColor": "#000000",
+        "secondaryColor": "#81A1C1",
+        "secondaryContainerColor": "#004154",
+        "secondaryFixedColor": "#C9E5F5",
+        "secondaryFixedDimColor": "#99C5DC",
+        "secondary_paletteKeyColorColor": "#81A1C1",
+        "shadowColor": "#000000",
+        "surfaceBrightColor": "#434C5E",
+        "surfaceColor": "#2E3440",
+        "surfaceContainerColor": "#242933",
+        "surfaceContainerHighColor": "#3B4252",
+        "surfaceContainerHighestColor": "#4C566A",
+        "surfaceContainerLowColor": "#1F232C",
+        "surfaceContainerLowestColor": "#191C24",
+        "surfaceDimColor": "#242933",
+        "surfaceTintColor": "#88C0D0",
+        "surfaceVariantColor": "#3B4252",
+        "tertiaryColor": "#8FBCBB",
+        "tertiaryContainerColor": "#37475A",
+        "tertiaryFixedColor": "#D4E5EC",
+        "tertiaryFixedDimColor": "#B0D4D3",
+        "tertiary_paletteKeyColorColor": "#8FBCBB",
+        "transparentColor": "#00000000"
+    },
+
+    "gruvbox_dark": {
+        "backgroundColor": "#282828",
+        "disabledTextColor": "#665C54",
+        "errorColor": "#FB4934",
+        "errorContainerColor": "#5C0F1A",
+        "inverseOnSurfaceColor": "#3C3836",
+        "inversePrimaryColor": "#458588",
+        "inverseSurfaceColor": "#EBDBB2",
+        "neutral_paletteKeyColorColor": "#7C6F64",
+        "neutral_variant_paletteKeyColorColor": "#665C54",
+        "onBackgroundColor": "#EBDBB2",
+        "onErrorColor": "#FFFFFF",
+        "onErrorContainerColor": "#FFD6DD",
+        "onPrimaryColor": "#001E2B",
+        "onPrimaryContainerColor": "#D5E4E8",
+        "onPrimaryFixedColor": "#001E2B",
+        "onPrimaryFixedVariantColor": "#003F58",
+        "onSecondaryColor": "#1F2B00",
+        "onSecondaryContainerColor": "#E8E5C8",
+        "onSecondaryFixedColor": "#1F2B00",
+        "onSecondaryFixedVariantColor": "#3F5700",
+        "onSurfaceColor": "#EBDBB2",
+        "onSurfaceLightColor": "#D5C4A1",
+        "onSurfaceVariantColor": "#BDAE93",
+        "onTertiaryColor": "#2D1700",
+        "onTertiaryContainerColor": "#FADEC9",
+        "onTertiaryFixedColor": "#2D1700",
+        "onTertiaryFixedVariantColor": "#5A3800",
+        "outlineColor": "#928374",
+        "outlineVariantColor": "#504945",
+        "primaryColor": "#83A598",
+        "primaryContainerColor": "#003F58",
+        "primaryFixedColor": "#D5E4E8",
+        "primaryFixedDimColor": "#A8C7D0",
+        "primary_paletteKeyColorColor": "#83A598",
+        "rippleColor": "#83A59833",
+        "scrimColor": "#000000",
+        "secondaryColor": "#B8BB26",
+        "secondaryContainerColor": "#3F5700",
+        "secondaryFixedColor": "#E8E5C8",
+        "secondaryFixedDimColor": "#CCD48A",
+        "secondary_paletteKeyColorColor": "#B8BB26",
+        "shadowColor": "#000000",
+        "surfaceBrightColor": "#504945",
+        "surfaceColor": "#282828",
+        "surfaceContainerColor": "#1D2021",
+        "surfaceContainerHighColor": "#3C3836",
+        "surfaceContainerHighestColor": "#504945",
+        "surfaceContainerLowColor": "#1D2021",
+        "surfaceContainerLowestColor": "#1B1B1B",
+        "surfaceDimColor": "#1D2021",
+        "surfaceTintColor": "#83A598",
+        "surfaceVariantColor": "#3C3836",
+        "tertiaryColor": "#FABD2F",
+        "tertiaryContainerColor": "#5A3800",
+        "tertiaryFixedColor": "#FADEC9",
+        "tertiaryFixedDimColor": "#E5CA8E",
+        "tertiary_paletteKeyColorColor": "#FABD2F",
+        "transparentColor": "#00000000"
+    },
+
+    "ayu_light": {
+        "backgroundColor": "#FAFAFA",
+        "disabledTextColor": "#ABB0B6",
+        "errorColor": "#E65050",
+        "errorContainerColor": "#FFDAD6",
+        "inverseOnSurfaceColor": "#F8F9FA",
+        "inversePrimaryColor": "#36A3D9",
+        "inverseSurfaceColor": "#242936",
+        "neutral_paletteKeyColorColor": "#8A9199",
+        "neutral_variant_paletteKeyColorColor": "#6C7680",
+        "onBackgroundColor": "#242936",
+        "onErrorColor": "#FFFFFF",
+        "onErrorContainerColor": "#5C0000",
+        "onPrimaryColor": "#FFFFFF",
+        "onPrimaryContainerColor": "#001D30",
+        "onPrimaryFixedColor": "#001D30",
+        "onPrimaryFixedVariantColor": "#00486A",
+        "onSecondaryColor": "#FFFFFF",
+        "onSecondaryContainerColor": "#1F2B00",
+        "onSecondaryFixedColor": "#1F2B00",
+        "onSecondaryFixedVariantColor": "#3F5700",
+        "onSurfaceColor": "#242936",
+        "onSurfaceLightColor": "#575F66",
+        "onSurfaceVariantColor": "#6C7680",
+        "onTertiaryColor": "#FFFFFF",
+        "onTertiaryContainerColor": "#2E1E00",
+        "onTertiaryFixedColor": "#2E1E00",
+        "onTertiaryFixedVariantColor": "#5D4E2A",
+        "outlineColor": "#ABB0B6",
+        "outlineVariantColor": "#E7EAF0",
+        "primaryColor": "#399EE6",
+        "primaryContainerColor": "#C8E6F7",
+        "primaryFixedColor": "#D6EDFF",
+        "primaryFixedDimColor": "#A4D5F0",
+        "primary_paletteKeyColorColor": "#399EE6",
+        "rippleColor": "#399EE633",
+        "scrimColor": "#000000",
+        "secondaryColor": "#86B300",
+        "secondaryContainerColor": "#E5F3C8",
+        "secondaryFixedColor": "#F0F9D6",
+        "secondaryFixedDimColor": "#D0E89E",
+        "secondary_paletteKeyColorColor": "#86B300",
+        "shadowColor": "#00000020",
+        "surfaceBrightColor": "#FAFAFA",
+        "surfaceColor": "#FAFAFA",
+        "surfaceContainerColor": "#F3F4F5",
+        "surfaceContainerHighColor": "#ECEEF0",
+        "surfaceContainerHighestColor": "#E7EAF0",
+        "surfaceContainerLowColor": "#F8F9FA",
+        "surfaceContainerLowestColor": "#FFFFFF",
+        "surfaceDimColor": "#F0F1F2",
+        "surfaceTintColor": "#399EE6",
+        "surfaceVariantColor": "#E7EAF0",
+        "tertiaryColor": "#F2AE49",
+        "tertiaryContainerColor": "#FFE9C8",
+        "tertiaryFixedColor": "#FFF0D6",
+        "tertiaryFixedDimColor": "#FFDBA3",
+        "tertiary_paletteKeyColorColor": "#F2AE49",
+        "transparentColor": "#00000000"
+    },
+
+    "ayu_dark": {
+        "backgroundColor": "#0A0E14",
+        "disabledTextColor": "#3E4B59",
+        "errorColor": "#D95757",
+        "errorContainerColor": "#5C0F1A",
+        "inverseOnSurfaceColor": "#0F131A",
+        "inversePrimaryColor": "#399EE6",
+        "inverseSurfaceColor": "#C9CCD0",
+        "neutral_paletteKeyColorColor": "#4D5566",
+        "neutral_variant_paletteKeyColorColor": "#3E4B59",
+        "onBackgroundColor": "#B3B1AD",
+        "onErrorColor": "#FFFFFF",
+        "onErrorContainerColor": "#FFD6DD",
+        "onPrimaryColor": "#001D30",
+        "onPrimaryContainerColor": "#C8E6F7",
+        "onPrimaryFixedColor": "#001D30",
+        "onPrimaryFixedVariantColor": "#00486A",
+        "onSecondaryColor": "#1F2B00",
+        "onSecondaryContainerColor": "#E5F3C8",
+        "onSecondaryFixedColor": "#1F2B00",
+        "onSecondaryFixedVariantColor": "#3F5700",
+        "onSurfaceColor": "#B3B1AD",
+        "onSurfaceLightColor": "#8A9199",
+        "onSurfaceVariantColor": "#707A8C",
+        "onTertiaryColor": "#2E1E00",
+        "onTertiaryContainerColor": "#FFE9C8",
+        "onTertiaryFixedColor": "#2E1E00",
+        "onTertiaryFixedVariantColor": "#5D4E2A",
+        "outlineColor": "#4D5566",
+        "outlineVariantColor": "#1F2430",
+        "primaryColor": "#59C2FF",
+        "primaryContainerColor": "#00486A",
+        "primaryFixedColor": "#C8E6F7",
+        "primaryFixedDimColor": "#7DD4F5",
+        "primary_paletteKeyColorColor": "#59C2FF",
+        "rippleColor": "#59C2FF33",
+        "scrimColor": "#000000",
+        "secondaryColor": "#95E454",
+        "secondaryContainerColor": "#3F5700",
+        "secondaryFixedColor": "#E5F3C8",
+        "secondaryFixedDimColor": "#B5E77C",
+        "secondary_paletteKeyColorColor": "#95E454",
+        "shadowColor": "#000000",
+        "surfaceBrightColor": "#1F2430",
+        "surfaceColor": "#0F131A",
+        "surfaceContainerColor": "#0A0E14",
+        "surfaceContainerHighColor": "#1F2430",
+        "surfaceContainerHighestColor": "#272D38",
+        "surfaceContainerLowColor": "#0B0E14",
+        "surfaceContainerLowestColor": "#000000",
+        "surfaceDimColor": "#0B0E14",
+        "surfaceTintColor": "#59C2FF",
+        "surfaceVariantColor": "#1F2430",
+        "tertiaryColor": "#FFB454",
+        "tertiaryContainerColor": "#5D4E2A",
+        "tertiaryFixedColor": "#FFE9C8",
+        "tertiaryFixedDimColor": "#FFCC7C",
+        "tertiary_paletteKeyColorColor": "#FFB454",
+        "transparentColor": "#00000000"
+    },
+
+    "atom_one_light": {
+        "backgroundColor": "#FAFAFA",
+        "disabledTextColor": "#A0A1A7",
+        "errorColor": "#E45649",
+        "errorContainerColor": "#FFDAD6",
+        "inverseOnSurfaceColor": "#F9F9F9",
+        "inversePrimaryColor": "#4078F2",
+        "inverseSurfaceColor": "#282C34",
+        "neutral_paletteKeyColorColor": "#9D9D9F",
+        "neutral_variant_paletteKeyColorColor": "#737378",
+        "onBackgroundColor": "#383A42",
+        "onErrorColor": "#FFFFFF",
+        "onErrorContainerColor": "#5C0000",
+        "onPrimaryColor": "#FFFFFF",
+        "onPrimaryContainerColor": "#001D36",
+        "onPrimaryFixedColor": "#001D36",
+        "onPrimaryFixedVariantColor": "#003C75",
+        "onSecondaryColor": "#FFFFFF",
+        "onSecondaryContainerColor": "#002106",
+        "onSecondaryFixedColor": "#002106",
+        "onSecondaryFixedVariantColor": "#00530F",
+        "onSurfaceColor": "#383A42",
+        "onSurfaceLightColor": "#696C77",
+        "onSurfaceVariantColor": "#9D9D9F",
+        "onTertiaryColor": "#FFFFFF",
+        "onTertiaryContainerColor": "#2E1E00",
+        "onTertiaryFixedColor": "#2E1E00",
+        "onTertiaryFixedVariantColor": "#5D4E2A",
+        "outlineColor": "#C2C2C4",
+        "outlineVariantColor": "#E5E5E6",
+        "primaryColor": "#4078F2",
+        "primaryContainerColor": "#D4E2FF",
+        "primaryFixedColor": "#E0EBFF",
+        "primaryFixedDimColor": "#B3CEFF",
+        "primary_paletteKeyColorColor": "#4078F2",
+        "rippleColor": "#4078F233",
+        "scrimColor": "#000000",
+        "secondaryColor": "#50A14F",
+        "secondaryContainerColor": "#C8E6C9",
+        "secondaryFixedColor": "#DCEDC8",
+        "secondaryFixedDimColor": "#A5D6A7",
+        "secondary_paletteKeyColorColor": "#50A14F",
+        "shadowColor": "#00000020",
+        "surfaceBrightColor": "#FAFAFA",
+        "surfaceColor": "#FAFAFA",
+        "surfaceContainerColor": "#F5F5F5",
+        "surfaceContainerHighColor": "#EFEFEF",
+        "surfaceContainerHighestColor": "#E5E5E6",
+        "surfaceContainerLowColor": "#F9F9F9",
+        "surfaceContainerLowestColor": "#FFFFFF",
+        "surfaceDimColor": "#F0F0F1",
+        "surfaceTintColor": "#4078F2",
+        "surfaceVariantColor": "#E5E5E6",
+        "tertiaryColor": "#C18401",
+        "tertiaryContainerColor": "#FFE9B8",
+        "tertiaryFixedColor": "#FFF0CC",
+        "tertiaryFixedDimColor": "#FFD88A",
+        "tertiary_paletteKeyColorColor": "#C18401",
+        "transparentColor": "#00000000"
+    },
+
+    "vs_code_light": {
+        "backgroundColor": "#FFFFFF",
+        "disabledTextColor": "#999999",
+        "errorColor": "#E51400",
+        "errorContainerColor": "#FFDAD6",
+        "inverseOnSurfaceColor": "#F3F3F3",
+        "inversePrimaryColor": "#007ACC",
+        "inverseSurfaceColor": "#1E1E1E",
+        "neutral_paletteKeyColorColor": "#6E6E6E",
+        "neutral_variant_paletteKeyColorColor": "#5A5A5A",
+        "onBackgroundColor": "#000000",
+        "onErrorColor": "#FFFFFF",
+        "onErrorContainerColor": "#5C0000",
+        "onPrimaryColor": "#FFFFFF",
+        "onPrimaryContainerColor": "#001D36",
+        "onPrimaryFixedColor": "#001D36",
+        "onPrimaryFixedVariantColor": "#003E78",
+        "onSecondaryColor": "#FFFFFF",
+        "onSecondaryContainerColor": "#001B3D",
+        "onSecondaryFixedColor": "#001B3D",
+        "onSecondaryFixedVariantColor": "#003A6F",
+        "onSurfaceColor": "#000000",
+        "onSurfaceLightColor": "#3B3B3B",
+        "onSurfaceVariantColor": "#616161",
+        "onTertiaryColor": "#FFFFFF",
+        "onTertiaryContainerColor": "#002114",
+        "onTertiaryFixedColor": "#002114",
+        "onTertiaryFixedVariantColor": "#00492F",
+        "outlineColor": "#D4D4D4",
+        "outlineVariantColor": "#E8E8E8",
+        "primaryColor": "#007ACC",
+        "primaryContainerColor": "#C5E7FF",
+        "primaryFixedColor": "#D6EDFF",
+        "primaryFixedDimColor": "#9DD4F5",
+        "primary_paletteKeyColorColor": "#007ACC",
+        "rippleColor": "#007ACC33",
+        "scrimColor": "#000000",
+        "secondaryColor": "#0066BF",
+        "secondaryContainerColor": "#CEE5FF",
+        "secondaryFixedColor": "#E0F0FF",
+        "secondaryFixedDimColor": "#A8D5F5",
+        "secondary_paletteKeyColorColor": "#0066BF",
+        "shadowColor": "#00000020",
+        "surfaceBrightColor": "#FFFFFF",
+        "surfaceColor": "#FFFFFF",
+        "surfaceContainerColor": "#F3F3F3",
+        "surfaceContainerHighColor": "#EEEEEE",
+        "surfaceContainerHighestColor": "#E8E8E8",
+        "surfaceContainerLowColor": "#F8F8F8",
+        "surfaceContainerLowestColor": "#FFFFFF",
+        "surfaceDimColor": "#F5F5F5",
+        "surfaceTintColor": "#007ACC",
+        "surfaceVariantColor": "#F0F0F0",
+        "tertiaryColor": "#008000",
+        "tertiaryContainerColor": "#D4F3D4",
+        "tertiaryFixedColor": "#E5F9E5",
+        "tertiaryFixedDimColor": "#B8EAB8",
+        "tertiary_paletteKeyColorColor": "#008000",
+        "transparentColor": "#00000000"
+    },
+
+    "vs_code_dark": {
+        "backgroundColor": "#1E1E1E",
+        "disabledTextColor": "#666666",
+        "errorColor": "#F48771",
+        "errorContainerColor": "#5C0F1A",
+        "inverseOnSurfaceColor": "#252526",
+        "inversePrimaryColor": "#007ACC",
+        "inverseSurfaceColor": "#D4D4D4",
+        "neutral_paletteKeyColorColor": "#858585",
+        "neutral_variant_paletteKeyColorColor": "#6E6E6E",
+        "onBackgroundColor": "#CCCCCC",
+        "onErrorColor": "#FFFFFF",
+        "onErrorContainerColor": "#FFD6DD",
+        "onPrimaryColor": "#001D36",
+        "onPrimaryContainerColor": "#C5E7FF",
+        "onPrimaryFixedColor": "#001D36",
+        "onPrimaryFixedVariantColor": "#003E78",
+        "onSecondaryColor": "#001B3D",
+        "onSecondaryContainerColor": "#CEE5FF",
+        "onSecondaryFixedColor": "#001B3D",
+        "onSecondaryFixedVariantColor": "#003A6F",
+        "onSurfaceColor": "#CCCCCC",
+        "onSurfaceLightColor": "#B0B0B0",
+        "onSurfaceVariantColor": "#B0B0B0",
+        "onTertiaryColor": "#002114",
+        "onTertiaryContainerColor": "#D4F3D4",
+        "onTertiaryFixedColor": "#002114",
+        "onTertiaryFixedVariantColor": "#00492F",
+        "outlineColor": "#858585",
+        "outlineVariantColor": "#3C3C3C",
+        "primaryColor": "#4FC1FF",
+        "primaryContainerColor": "#003E78",
+        "primaryFixedColor": "#C5E7FF",
+        "primaryFixedDimColor": "#7DD4F5",
+        "primary_paletteKeyColorColor": "#4FC1FF",
+        "rippleColor": "#4FC1FF33",
+        "scrimColor": "#000000",
+        "secondaryColor": "#569CD6",
+        "secondaryContainerColor": "#003A6F",
+        "secondaryFixedColor": "#CEE5FF",
+        "secondaryFixedDimColor": "#84C5F0",
+        "secondary_paletteKeyColorColor": "#569CD6",
+        "shadowColor": "#000000",
+        "surfaceBrightColor": "#3C3C3C",
+        "surfaceColor": "#1E1E1E",
+        "surfaceContainerColor": "#252526",
+        "surfaceContainerHighColor": "#2D2D30",
+        "surfaceContainerHighestColor": "#3C3C3C",
+        "surfaceContainerLowColor": "#1A1A1A",
+        "surfaceContainerLowestColor": "#141414",
+        "surfaceDimColor": "#F6F8FA",
+        "surfaceTintColor": "#0969DA",
+        "surfaceVariantColor": "#EAEEF2",
+        "tertiaryColor": "#1A7F37",
+        "tertiaryContainerColor": "#DAFBE1",
+        "tertiaryFixedColor": "#E7FEE9",
+        "tertiaryFixedDimColor": "#B4F1B8",
+        "tertiary_paletteKeyColorColor": "#1A7F37",
+        "transparentColor": "#00000000"
     }
 }
 
@@ -2268,8 +3245,8 @@ class CivilEstimationApp(MDApp):
 
         self.THEMES = THEMES
 
-        self.active_theme_name = list(self.THEMES.keys())[0]
-        self.theme_data = THEMES[self.active_theme_name]  # dict for the active theme
+        self.active_theme_name = list(self.THEMES.keys())[9]
+        self.theme_data = self.THEMES[self.active_theme_name]  # dict for the active theme
 
         self.load_kv_files()
 
@@ -2312,22 +3289,16 @@ class CivilEstimationApp(MDApp):
 
 
 
-        menu_items = [
-            {"text": "Title", "viewclass": "MDMenuItem", "on_release": lambda x="Title": self.set_item(x)},
-            {"text": "Resources", "viewclass": "MDMenuItem", "on_release": lambda x="Resources": self.set_item(x)},
-            {"text": "Labour", "viewclass": "MDMenuItem", "on_release": lambda x="Labour": self.set_item(x)},
-            {"text": "Materials", "viewclass": "MDMenuItem", "on_release": lambda x="Materials": self.set_item(x)},
-            {"text": "Machines", "viewclass": "MDMenuItem", "on_release": lambda x="Machines": self.set_item(x)},
-        ]
-
-
         # 🔹 Create one database handler for the app
         self.gui_DB = DM.GUIDatabase()
         self.GUIHandle = GUI_DB_Handle()
         return self.sm
 
     def on_start(self):
-        Clock.schedule_once(self._post_start, 0)
+        # Clock.schedule_once(self._post_start, 0)
+        # Schedule the welcome label removal after 3 seconds
+        main_screen = self.sm.get_screen("main_screen")
+        Clock.schedule_once(lambda dt: self.remove_welcome(main_screen), 7)
     def on_stop(self):
         """Close DB when app exits"""
         self.gui_DB.conn.close()
@@ -2351,92 +3322,174 @@ class CivilEstimationApp(MDApp):
             widget.dispatch("on_release")
         else:
             print("Widget with id 'ITem' not found!")
+    def remove_welcome(self, screen):
+        # Remove the welcome label
+        welcome_box = screen.ids.welcome_label
+        if welcome_box:
+            welcome_box.parent.remove_widget(welcome_box)
+        # MDStackLayout automatically adjusts its size
+    def open_help_dialog(self):
+        # dialog_content = Factory.HelpDialog()
+        layout = BoxLayout(orientation='vertical', spacing=20, padding=20, size_hint_y=None)
+        layout.bind(minimum_height=layout.setter('height'))
 
+        # Card
+        card = MDCard(
+            style="elevated",
+            pos_hint={"center_x": 0.5},
+            padding="4dp",
+            size_hint=(None, None),
+            size=("240dp", "100dp"),
+            theme_shadow_color="Custom",
+            shadow_color="green",
+            theme_bg_color="Custom",
+            md_bg_color="white",
+            md_bg_color_disabled="grey",
+            theme_shadow_offset="Custom",
+            shadow_offset=(1, -2),
+            theme_shadow_softness="Custom",
+            shadow_softness=1,
+            theme_elevation_level="Custom",
+            elevation_level=2,
+        )
+
+
+        # Add FAB
+        fabbutton1 = HoverFab(
+            pos_hint={"center_x": 0.5},
+            elevation_level=5,
+            fab_state="collapse"
+        )
+
+        fabbutton1.add_widget(MDExtendedFabButtonIcon(icon="facebook"))
+        fabbutton1.add_widget(MDExtendedFabButtonText(text="Nolaraj Poudel"))
+        fabbutton1.bind(on_release=lambda instance: self.open_link("https://www.facebook.com/nolaraj/"))
+
+        scroll = ScrollView(size_hint=(1, None), size=(400, 300))
+
+        layout.add_widget(card)
+        card.add_widget(fabbutton1)
+
+
+        scroll.add_widget(layout)
+
+        cancel_btn = MDButton(
+            style="outlined",
+            size_hint=(None, None),
+            size=(dp(60), dp(40)),  # bigger for touch target
+            pos_hint={'center_x': 0.5},
+            on_release=lambda x: self.dialog.dismiss()
+        )
+        cancel_btn.add_widget(MDButtonIcon(icon="close"))  # ✅ Tick Icon
+        #cancel_btn.add_widget(MDButtonText(text="CANCEL"))
+
+        #cancel_btn.add_widget(MDButtonText(text="CANCEL"))
+        self.dialog = MDDialog(
+            MDDialogHeadlineText(text="About me"),
+            MDDialogContentContainer(scroll),
+            MDDialogButtonContainer(
+                cancel_btn,
+            ),
+        )
+        self.dialog.open()
+    def open_link(self, url):
+        webbrowser.open(url)
     #____________________________________________________Themes
-    # -------------------------------------------------------------
-    # 🟣 Apply a theme by name
-    # -------------------------------------------------------------
+
     def apply_theme(self, theme_name: str):
-        if theme_name not in THEMES:
+        if theme_name not in self.THEMES:
             print(f"⚠️ Theme '{theme_name}' not found.")
             return
 
         self.active_theme_name = theme_name
-        self.theme_data = THEMES[theme_name]
+        self.theme_data = self.THEMES[theme_name]
 
         for key, hex_color in self.theme_data.items():
             color_value = get_color_from_hex(hex_color)
             if hasattr(self.theme_cls, key):
                 setattr(self.theme_cls, key, color_value)
 
-        if "Light" in theme_name:
-            self.theme_cls.theme_style = "Light"
-        else:
-            self.theme_cls.theme_style = "Dark"
+        # if "Light" in theme_name:
+        #     self.theme_cls.theme_style = "Light"
+        # else:
+        #     self.theme_cls.theme_style = "Dark"
 
-        print(f"✅ Theme '{theme_name}' applied successfully.")
-
-    # -------------------------------------------------------------
-    # 🟢 Open the theme dialog (triggered by `on_release`)
-    # -------------------------------------------------------------
+        # print(f"✅ Theme '{theme_name}' applied successfully.")
 
     def open_theme_dialog(self):
+        ThemeKeys = list(self.THEMES.keys())
+        self.theme_buttons = {}  # store button references
 
-        ThemeKeys = list(THEMES.keys())
-        # ThemeKeys = ['Classic Light', 'Solarized Light', 'Soft Pastel', 'Ivory Mist', 'Paper White', 'Classic Dark', 'Midnight', 'Obsidian', 'Charcoal', 'Solarized Dark', 'Ocean Blue', 'Forest Green', 'Amber Glow', 'Crimson Red', 'Violet Dream', 'High Contrast', 'Mono Gray', 'Dynamic Contrast', 'Frosted Glass', 'Minimal Edge']
-
-        #Code here
+        # Content layout
         content_layout = MDBoxLayout(
             orientation="vertical",
-            spacing=dp(1),  # minimum spacing
+            spacing=dp(1),
             size_hint_y=None,
-            pos_hint={'center_x': 0.5}  # center the layout horizontally
+            pos_hint={'center_x': 0.5}  # center layout horizontally
         )
         content_layout.bind(minimum_height=content_layout.setter('height'))
 
         for theme_name in ThemeKeys:
             btn = MDButton(
-                size_hint_y=None,
-                height=dp(36),  # minimum height for touch target (MD guidelines suggest ~48dp, but minimized to 36dp)
-                on_release=lambda x, tn=theme_name: self.apply_theme(tn),
-                pos_hint={'center_x': 0.5},  # center each button horizontally
-                style="outlined" if theme_name == self.active_theme_name else "filled"
+                size_hint=(None, None),  # allow fixed width and height
+                width=dp(250),  # button width smaller than content layout width for centering
+                height=dp(36),
+                on_release=lambda x, tn=theme_name: self._on_theme_button_press(tn),
+                style="outlined" if theme_name == self.active_theme_name else "text",
+                pos_hint={'center_x': 0.5}  # center button inside layout
             )
-            btn.add_widget(MDButtonText(text=theme_name,                 halign="center",
-                text_color=app.theme_cls.primaryColor))  # ✅ Tick Icon
-
+            btn.add_widget(
+                MDButtonText(
+                    text=theme_name,
+                    halign="center",
+                    text_color=app.theme_cls.primaryColor
+                )
+            )
 
             content_layout.add_widget(btn)
+            self.theme_buttons[theme_name] = btn  # store reference
 
-        # Wrap in scroll view if height exceeds max
+        # Scroll view
         scroll_view = MDScrollView(
             size_hint=(1, None),
-            height=min(dp(36) * len(ThemeKeys) + dp(1) * (len(ThemeKeys) - 1), 300),
-            # adjusted for new height and spacing
+            height=min(dp(36) * len(ThemeKeys) + dp(1) * (len(ThemeKeys) - 1), dp(250)),
+            bar_width=dp(8),  # ✅ thicker scrollbar
         )
+        scroll_view.scroll_type = ['bars', 'content']
+        scroll_view.bar_color = app.theme_cls.primaryColor  # ✅ scrollbar color matches theme
+        scroll_view.bar_inactive_color = app.theme_cls.onSurfaceVariantColor  # faded inactive color
+        scroll_view.scroll_wheel_distance = dp(40)  # smoother scrolling
         scroll_view.add_widget(content_layout)
-
-
-
-        # Create the dialog
+        # Cancel button
         cancel_btn = MDButton(
-            style="text",
-            on_release=lambda x: self.dialog.dismiss(),
+            style="outlined",
+            size_hint=(None, None),
+            size=(dp(60), dp(40)),  # bigger for touch target
+            pos_hint={'center_x': 0.5},
+            on_release=lambda x: self.dialog.dismiss()
         )
-        cancel_btn.add_widget(MDButtonIcon(icon="close"))  # ✅ Tick Icon
+        cancel_btn.add_widget(MDButtonIcon(icon="close", halign="center"))
 
+        # Dialog
         self.dialog = MDDialog(
             MDDialogHeadlineText(text="Select Theme"),
             MDDialogContentContainer(scroll_view),
-            MDDialogButtonContainer(
-                cancel_btn,
-            ),
+            MDDialogButtonContainer(cancel_btn),
         )
         self.dialog.open()
+    def _on_theme_button_press(self, theme_name):
+        # Apply theme
+        self.apply_theme(theme_name)
 
-    # -------------------------------------------------------------
-    # 🟡 Helper — Apply and Close
-    # -------------------------------------------------------------
+        # Update button styles
+        for tn, btn in self.theme_buttons.items():
+            if tn == theme_name:
+                btn.style = "outlined"
+            else:
+                btn.style = "text"
+
+        # Update active theme tracker
+        self.active_theme_name = theme_name
     def apply_and_close(self, theme_name):
         self.apply_theme(theme_name)
         if self.dialog:
@@ -2549,12 +3602,12 @@ class CivilEstimationApp(MDApp):
         dialog.open()
     def load_kv_files(self):
         # Load screen KV files
-        Builder.load_file("screens/login.kv")
-        Builder.load_file("screens/Test.kv")
+        Builder.load_file(        resourece_path("screens/login.kv"))
+        Builder.load_file(   resourece_path("screens/Test.kv"))
 
         # Load component KV files
-        Builder.load_file("components/rv.kv")
-        Builder.load_file("components/dialogs.kv")
+        Builder.load_file(   resourece_path("components/rv.kv"))
+        Builder.load_file(   resourece_path("components/dialogs.kv"))
 
         # inspector = GUIInspector(root_widget=app.root)
         # on_kv_post:

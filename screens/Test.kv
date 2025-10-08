@@ -113,91 +113,105 @@
                 text: "CANCEL"
                 on_release: root.dismiss()
 
-<ThemeDialog@MDDialog>:
-    title: "Theme Settings"
-    type: "custom"
-    size_hint: 0.85, None
-    auto_dismiss: True
-    height: dp(500)
 
+<MainScreenCardIcon@MDIconButton>:
+    pos_hint: {"top": 1, "right": 1}
+    on_release: print("hello")
+
+
+<MainScreenCardLabel@MDLabel>:
+    adaptive_size: True
+    pos: "12dp", "12dp"
+    bold: True
+    halign: "center"
+    valign: "middle"
+    pos_hint: {"center_x": 0.5, "center_y": 0.5}
+
+
+<MainScreenCard@MDCard>:
+    style: "elevated"
+    size_hint: None, None
+    size: "240dp", "100dp"
+    radius: [12,]  # Optional: Rounded corners for Material look
+    padding: "8dp"
+    elevation_level: 2
+    ripple_behavior: True  # enables touch ripple effect
+    theme_shadow_color: "Custom"
+    shadow_color: "green"
+    theme_shadow_offset: "Custom"
+    shadow_offset: (1, -2)
+    theme_shadow_softness: "Custom"
+    shadow_softness: 1
+    theme_elevation_level: "Custom"
+    elevation_level: 2
+
+
+<HelpListItem@OneLineAvatarIconListItem>:
+    _no_ripple_effect: True
+
+    IconLeftWidget:
+        icon: root.icon
+        theme_icon_color: "Custom"
+        icon_color: app.theme_cls.primary_color
+
+<HelpDialog@MDDialog>:
+    title: "Help & Resources"
+    type: "custom"
+    size_hint: 0.9, None
+    height: dp(400)
     MDBoxLayout:
         orientation: "vertical"
-        spacing: "12dp"
-        padding: "20dp"
-        adaptive_height: True
+        spacing: dp(10)
+        padding: dp(10)
 
-        MDLabel:
-            text: "Theme Style"
-            size_hint_y: None
-            height: dp(40)
-            halign: "left"
+        HelpListItem:
+            text: "Facebook"
+            icon: "facebook"
+            on_release: app.open_link("https://facebook.com/YourProfile")
+
+        MDSeparator:
+            height: "1dp"
+
+        HelpListItem:
+            text: "LinkedIn"
+            icon: "linkedin"
+            on_release: app.open_link("https://linkedin.com/in/YourProfile")
+
+        MDSeparator:
+            height: "1dp"
+
+        HelpListItem:
+            text: "GitHub"
+            icon: "github"
+            on_release: app.open_link("https://github.com/YourProfile")
+
+        MDSeparator:
+            height: "1dp"
+
+        HelpListItem:
+            text: "About Me"
+            icon: "account"
+            on_release: app.show_about()
+
+        MDSeparator:
+            height: "1dp"
+
+        HelpListItem:
+            text: "Manual (PDF)"
+            icon: "file-pdf"
+            on_release: app.open_pdf("manual.pdf")
 
         MDBoxLayout:
-            orientation: "horizontal"
-            spacing: "12dp"
-            size_hint_y: None
-            height: dp(50)
-
-            MDCard:
-                style: "filled" if app.theme_cls.theme_style == "Light" else "outlined"
-                size_hint: None, None
-                size: dp(120), dp(40)
-                on_release: app.apply_theme(style="Light")
-                MDLabel:
-                    text: "Light"
-                    halign: "center"
-                    theme_text_color: "Custom"
-                    text_color: (0, 0.3, 0, 1)
-
-            MDCard:
-                style: "filled" if app.theme_cls.theme_style == "Dark" else "outlined"
-                size_hint: None, None
-                size: dp(120), dp(40)
-                on_release: app.apply_theme(style="Dark")
-                MDLabel:
-                    text: "Dark"
-                    halign: "center"
-                    theme_text_color: "Custom"
-                    text_color: (1, 0.2, 1, 1)
-
-        MDDivider:
-            size_hint_y: None
-            height: dp(1)
-
-        MDLabel:
-            text: "Primary Color"
             size_hint_y: None
             height: dp(40)
-            halign: "left"
+            MDFlatButton:
+                text: "CLOSE"
+                on_release: help_dialog.dismiss()
+                pos_hint: {"center_x": 0.5}
 
-        ScrollView:
-            size_hint_y: None
-            height: dp(200)
-            MDBoxLayout:
-                orientation: "vertical"
-                adaptive_height: True
-                spacing: dp(10)
-                MDBoxLayout:
-                    orientation: "horizontal"
-                    spacing: dp(10)
-                    adaptive_height: True
-                    RecycleViewColors:
-                        colors_list: ["Red", "Pink", "Purple", "Blue", "Teal", "Green", "Orange", "Amber", "Brown", "Gray"]
 
-        MDDivider:
-            size_hint_y: None
-            height: dp(1)
 
-        MDButton:
-            text: "Apply & Close"
-            style: "filled"
-            pos_hint: {"center_x": 0.5}
-            on_release: root.dismiss()
 
-<RecycleViewColors@MDBoxLayout>:
-    colors_list: []
-    adaptive_height: True
-    spacing: dp(10)
 
 
 
@@ -209,6 +223,7 @@
 
 <MainScreen>:
     id: main_screen
+    md_bg_color: app.theme_cls.backgroundColor
 #_____________________________________________________________________________________________________________________________________________main_screen
 
     ScreenManager:
@@ -216,6 +231,8 @@
 
         Screen:
             name: "main_screen"
+            md_bg_color: app.theme_cls.backgroundColor
+
             BoxLayout:
                 orientation: "vertical"
                 md_bg_color: app.theme_cls.backgroundColor
@@ -255,6 +272,7 @@
                                 id: help_button
                                 icon: "help-circle"
                                 user_font_size: "24sp"
+                                on_release: app.open_help_dialog()
                 BoxLayout:
                     id: welcome_label
                     orientation: "vertical"
@@ -267,6 +285,56 @@
                         halign: "center"
                         theme_text_color: "Primary"
                         md_bg_color: app.theme_cls.backgroundColor
+
+                MDStackLayout:
+                    orientation: "lr-tb"  # left-to-right, top-to-bottom
+                    padding: dp(10)
+                    spacing: dp(10)
+                    MainScreenCard:
+                        on_release:
+                            root.ids.screen_manager.current = "estimation_screen"
+                            root.click_NewSection()
+                            nav_drawer.set_state("close")
+                        RelativeLayout:
+                            MainScreenCardIcon:
+                                icon: "open-in-app"
+                                on_release:
+                                    root.ids.screen_manager.current = "estimation_screen"
+                                    nav_drawer.set_state("close")
+                                    app.open_load_dialog()
+                            MainScreenCardLabel:
+                                text: "Quantity Estimation"
+
+                    MainScreenCard:
+                        on_release:
+                            root.ids.screen_manager.current = "estimation_screen"
+                            nav_drawer.set_state("close")
+                        RelativeLayout:
+                            MainScreenCardIcon:
+                                icon: "dots-vertical"
+                            MainScreenCardLabel:
+                                text: "Import XLSX"
+
+                    MainScreenCard:
+                        on_release:
+                            root.ids.screen_manager.current = "estimation_screen"
+                            nav_drawer.set_state("close")
+                        RelativeLayout:
+                            MainScreenCardIcon:
+                                icon: "dots-vertical"
+                            MainScreenCardLabel:
+                                text: "Export XLSX"
+
+                    MainScreenCard:
+                        on_release:
+                            root.ids.screen_manager.current = "estimation_screen"
+                            nav_drawer.set_state("close")
+                        RelativeLayout:
+                            MainScreenCardIcon:
+                                icon: "dots-vertical"
+                            MainScreenCardLabel:
+                                text: "Completion Report"
+
 #_____________________________________________________________________________________________________________________________________________estimation_screen
         Screen:
             name: "estimation_screen"
@@ -322,7 +390,7 @@
 
                             MDIconButton:
                                 id: load_gui
-                                icon: "folder-open"
+                                icon: "open-in-app"
                                 user_font_size: "24sp"
                                 tooltip_text: "Load GUI State"
                                 on_release: app.open_load_dialog()
@@ -331,7 +399,7 @@
                                 id: file_import
                                 icon: "file-import"
                                 user_font_size: "24sp"
-                                on_release: app.create_dropdown()
+                                on_release: print("Functional less")
 
                             #MDIconButton:
                             #    id: file_export
@@ -350,6 +418,12 @@
                     id: scroll_view
                     do_scroll_x: False
                     do_scroll_y: True
+                    # ✅ SCROLLBAR AESTHETICS
+                    bar_width: dp(10)                              # slightly thicker for modern touch
+                    bar_color: app.theme_cls.primaryColor          # active color
+                    bar_inactive_color: app.theme_cls.outlineColor # subtle fade tone
+                    bar_margin: dp(4)                              # space from edge, looks cleaner
+                    scroll_wheel_distance: dp(60)                  # balanced smooth scroll
 
 
                     ContentBoxV:
@@ -428,6 +502,7 @@
                                     dynamic_sections_container.add_widget(new_section)
                                     app.cache_forNewSection()
                                     scroll_view.scroll_to(new_section)
+                                    root.click_item()
                                 #on_kv_post:
                                 #    self.dispatch("on_release")
                                 MDButtonIcon:
@@ -482,8 +557,8 @@
                         on_press:
                             root.ids.screen_manager.current = "estimation_screen"
                             nav_drawer.set_state("close")
-                        on_kv_post:
-                            Clock.schedule_once(lambda dt: self.dispatch("on_press"), 0)
+                        #on_kv_post:
+                        #    Clock.schedule_once(lambda dt: self.dispatch("on_press"), 0)
                         MDListItemLeadingIcon:
                             icon: "ruler-square"
                         MDListItemHeadlineText:
@@ -564,7 +639,8 @@
                     dynamic_item_container.add_widget(new_item)
                     root.click_subitem()
                     #app.cache_forNewItem()
-
+                #on_kv_post:
+                #    self.dispatch("on_release")
                 icon: "note-plus"
                 style: "small"
                 size: "80dp", "30dp"
@@ -856,7 +932,6 @@
         id: remarks
         name:"item_remarks"
         size_hint_x: 0.1
-        readonly: True
         MDTextFieldHintText:
             text: "Remarks"
             #_________________________________________________________________xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -896,6 +971,15 @@
         size_hint_y: None
         height: min(        dp(200),         max(            dp(144),             len(self.data) * dp(48)          )    )
         effect_cls: "ScrollEffect"
+        # ✅ SCROLLBAR AESTHETICS
+        bar_width: dp(10)                              # slightly thicker for modern touch
+        bar_color: app.theme_cls.primaryColor          # active color
+        bar_inactive_color: app.theme_cls.outlineColor # subtle fade tone
+        bar_margin: dp(4)                              # space from edge, looks cleaner
+        scroll_wheel_distance: dp(60)                  # balanced smooth scroll
+        size_hint_y: None
+        height: min(dp(200), max(dp(144), len(self.data) * dp(48)))
+
 
         RecycleBoxLayout:
             orientation: "vertical"
