@@ -13,15 +13,76 @@ from openpyxl.styles import Border, Side
 import xlwings as xw
 from PyPDF2 import PdfMerger
 import sys
+import InputData
+
+databaseDir = os.path.join(os.path.dirname(__file__), "_cache")
+if not os.path.exists(databaseDir):
+    os.makedirs(databaseDir)
+
+db_name = "estimation.db"
+databasePath = os.path.join(databaseDir, db_name)
+if os.path.exists(databasePath):
+    os.remove(databasePath)
+
+Estimation_excelPath = os.path.join(databaseDir, "Estimation Result.xlsx")
+Estimation_pdfPath = os.path.join(databaseDir, "Estimation Combined.pdf")
 
 
-def resourece_path(rel_path):
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
+
+def resource_path(rel_path: str) -> str:
+    """
+    Return an absolute path to a resource, working for:
+      - PyInstaller onefile (--onefile): uses sys._MEIPASS (temporary extracted folder)
+      - PyInstaller one-folder: uses directory of the executable (sys.executable)
+      - Running from source: uses the directory of this helper file
+    This helper is intended for read-only packaged resources (kv, fonts, sample XLSX).
+    """
+    if getattr(sys, "frozen", False):
+        # When frozen by PyInstaller:
+        base_path = getattr(sys, "_MEIPASS", None)
+        if not base_path:
+            # one-folder build: resources are next to sys.executable
+            base_path = os.path.dirname(sys.executable)
+    else:
+        # Running from source: use the package/module directory
+        base_path = os.path.dirname(os.path.abspath(__file__))
 
     return os.path.join(base_path, rel_path)
+
+
+def get_user_data_dir(app_name: str = "Civil_Multipurpose_Software") -> str:
+    """
+    Return a writable user data directory for persistent runtime files.
+    Uses APPDATA on Windows, or ~/Library/Application Support on macOS,
+    or ~/.local/share (or XDG_DATA_HOME) on Linux.
+    """
+    if sys.platform == "win32":
+        base = os.environ.get("APPDATA", os.path.expanduser("~"))
+    elif sys.platform == "darwin":
+        base = os.path.join(os.path.expanduser("~"), "Library", "Application Support")
+    else:
+        # Linux and others
+        base = os.environ.get("XDG_DATA_HOME", os.path.join(os.path.expanduser("~"), ".local", "share"))
+
+    path = os.path.join(base, app_name)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def runtime_db_path(db_filename: str = "estimation.db", app_name: str = "Civil_Multipurpose_Software") -> str:
+    """
+    Return a safe, writable path for the runtime DB (do not use sys._MEIPASS).
+    The DB will be placed in the user data dir so it persists between runs.
+    """
+    user_dir = get_user_data_dir(app_name)
+    return os.path.join(user_dir, db_filename)
+
+
+# Backwards compatibility: many places in your code call resourece_path (typo).
+# Provide alias so existing calls continue to work when they expect to read packaged resource files.
+def resourece_path(rel_path: str) -> str:
+    # alias to resource_path (keeps original semantics for packaged, read-only files)
+    return resource_path(rel_path)
 def DUDBC_RateWriter(databasepath):
 
     def create_connection(db_file):
@@ -325,7 +386,6 @@ def DUDBC_RateWriter(databasepath):
         database = databasepath
 
         # Sample data (you provided)
-        import InputData
         MappedData = InputData.mapped_Data
 
         # Create a database connection
@@ -1000,21 +1060,24 @@ class GUIDatabase:
     #For data modificaiton (ie adding of any unique key and values) then perfrom the following:
     #1. initialize from the table creation
     #2. Enforce the code for writing to that key
-    def __init__(self, db_name="estimation.db", init_db=True):
+    def __init__(self, init_db=True):
         if init_db:
-            db_name  = resourece_path(db_name)
-            if os.path.exists(db_name):
-                os.remove(db_name)
-
-            # Create a fresh database
-            self.conn = sqlite3.connect(db_name)
-            self.cursor = self.conn.cursor()
-            self.init_db()
-            self.conn = sqlite3.connect(db_name)
-            self.cursor = self.conn.cursor()
+            # self.db_name  = resourece_path(db_name)
+            # if os.path.exists(db_name):
+            #     os.remove(db_name)
+            #
+            # # Create a fresh database
+            #
+            # self.conn = sqlite3.connect(db_name)
+            # self.cursor = self.conn.cursor()
+            # self.init_db()
+            # self.conn = sqlite3.connect(db_name)
+            # self.cursor = self.conn.cursor()
             self.init_db()
 
     def init_db(self):
+        self.conn = sqlite3.connect(databasePath)
+        self.cursor = self.conn.cursor()
         # General Info table
         self.cursor.execute("""
         CREATE TABLE IF NOT EXISTS General_Info (
@@ -1086,8 +1149,13 @@ class GUIDatabase:
             priceadjustment_contingency REAL
         )
         """)
+
         self.conn.commit()
+        self.conn.close()
+
     def save_GenInfo_QEstimation(self, ObjectsCache):
+        self.conn = sqlite3.connect(databasePath)
+        self.cursor = self.conn.cursor()
         def get_text(obj):
             try:
                 return str(obj.text)
@@ -1181,8 +1249,10 @@ class GUIDatabase:
             """, values)
 
         self.conn.commit()
-
+        self.conn.close()
     def save_PrimaryKeys(self, valuesDict):
+        self.conn = sqlite3.connect(databasePath)
+        self.cursor = self.conn.cursor()
         def safe_float(val, default=0.0):
             try:
                 return float(val)
@@ -1204,7 +1274,7 @@ class GUIDatabase:
 
 
         self.conn.commit()
-
+        self.conn.close()
     def close(self):
         self.conn.close()
 
@@ -1213,17 +1283,35 @@ class GUIDatabase:
 #_________________-Check below
 
     def save_appliedRateAnalysis(self, item_number, appliedRateData):
-        db_name = resourece_path("estimation.db")
-        conn = sqlite3.connect(db_name)
-        c = conn.cursor()
+        self.conn = sqlite3.connect(databasePath)
+        self.cursor = self.conn.cursor()
+
+        """
+        Uses self.db_path (runtime DB) so the same file is used by all DB operations.
+        """
+        # # Ensure we are using the same DB path created/opened by this object
+        # db_name = getattr(self, "db_path", runtime_db_path("estimation.db"))
+        #
+        # # Connect (or reuse existing connection)
+        # # Prefer using existing connection if present
+        # conn = getattr(self, "conn", None)
+        # if conn is None:
+        #     conn = sqlite3.connect(db_name)
+        #     c = conn.cursor()
+        # else:
+        #     c = self.cursor
+
+        # db_name = resourece_path("estimation.db")
+        # conn = sqlite3.connect(db_name)
+        # c = conn.cursor()
 
         # First remove all rows with this item_number
-        c.execute("DELETE FROM Rate_Analysis WHERE item_number = ?", (item_number,))
+        self.cursor.execute("DELETE FROM Rate_Analysis WHERE item_number = ?", (item_number,))
 
         # ---- Title_Section ----
         for k, v in appliedRateData.get("Title_Section", {}).items():
             for entry in v:
-                c.execute("""
+                self.cursor.execute("""
                     INSERT INTO Rate_Analysis (item_number, norms_ref, section, attribute, value)
                     VALUES (?, ?, ?, ?, ?)
                 """, (item_number, appliedRateData.get("NormsDBRef", ""), "Title_Section", k, str(entry)))
@@ -1231,7 +1319,7 @@ class GUIDatabase:
         # ---- References ----
         for k, v in appliedRateData.get("References", {}).items():
             for entry in v:
-                c.execute("""
+                self.cursor.execute("""
                     INSERT INTO Rate_Analysis (item_number, norms_ref, section, attribute, value)
                     VALUES (?, ?, ?, ?, ?)
                 """, (item_number, appliedRateData.get("NormsDBRef", ""), "References", k, str(entry)))
@@ -1241,7 +1329,7 @@ class GUIDatabase:
 
         def insert_resource(rows, resource_type):
             for row in rows:
-                c.execute("""
+                self.cursor.execute("""
                     INSERT INTO Rate_Analysis (
                         item_number, norms_ref, section, attribute,
                         resource_type, category, quantity, unit, rate, amount, amount_perHeading
@@ -1261,13 +1349,32 @@ class GUIDatabase:
         # ---- Second Inner Table ----
         for k, v in appliedRateData.get("Second Inner table", {}).items():
             for entry in v:
-                c.execute("""
+                self.cursor.execute("""
                     INSERT INTO Rate_Analysis (item_number, norms_ref, section, attribute, value)
                     VALUES (?, ?, ?, ?, ?)
                 """, (item_number, appliedRateData.get("NormsDBRef", ""), "Second Inner table", k, str(entry)))
 
-        conn.commit()
+        self.conn.commit()
+        self.conn.close()
     def load_appliedRateAnalysis(self, item_number=None, norms_ref=None):
+        self.conn = sqlite3.connect(databasePath)
+        self.cursor = self.conn.cursor()
+        """
+        Uses self.db_path (runtime DB) so the same file is used by all DB operations.
+        """
+        # Ensure we are using the same DB path created/opened by this object
+        # db_name = getattr(self, "db_path", runtime_db_path("estimation.db"))
+        # print(db_name)
+        #
+        # # Connect (or reuse existing connection)
+        # # Prefer using existing connection if present
+        # conn = getattr(self, "conn", None)
+        # if conn is None:
+        #     conn = sqlite3.connect(db_name)
+        #     c = conn.cursor()
+        # else:
+        #     c = self.cursor
+
         """
         Extract data from Rate_Analysis table and reconstruct appliedRateData
         in the exact format it was saved.
@@ -1279,8 +1386,9 @@ class GUIDatabase:
         Returns:
             appliedRateData (dict)
         """
-        conn = sqlite3.connect("estimation.db")
-        c = conn.cursor()
+        # db_name = resourece_path("estimation.db")
+        # conn = sqlite3.connect(db_name)
+        # c = conn.cursor()
 
         # Initialize the structure
         appliedRateData = {
@@ -1299,8 +1407,8 @@ class GUIDatabase:
         }
 
         # Build query based on filters
-        conn = sqlite3.connect("estimation.db")
-        c = conn.cursor()
+        # conn = sqlite3.connect("estimation.db")
+        # c = conn.cursor()
 
         # Base query
         query = "SELECT * FROM Rate_Analysis WHERE 1=1"
@@ -1317,15 +1425,15 @@ class GUIDatabase:
             params.append(norms_ref)
 
         # Execute query
-        c.execute(query, params)
-        rows = c.fetchall()
+        self.cursor.execute(query, params)
+        rows = self.cursor.fetchall()
 
         if not rows:
-            conn.close()
+            self.conn.close()
             return rows,  appliedRateData
 
         # Get column names
-        col_names = [desc[0] for desc in c.description]
+        col_names = [desc[0] for desc in self.cursor.description]
 
         # Fetch NormsDBRef from first non-empty row
         for row in rows:
@@ -1373,43 +1481,83 @@ class GUIDatabase:
                     appliedRateData["Second Inner table"][attribute] = []
                 appliedRateData["Second Inner table"][attribute].append(value)
 
-        conn.close()
+        self.conn.commit()
+        self.conn.close()
         return rows, appliedRateData
 
     def ResetRate_QunatityEstimation(self):
-        conn = sqlite3.connect("estimation.db")
-        c = conn.cursor()
+        self.conn = sqlite3.connect(databasePath)
+        self.cursor = self.conn.cursor()
+        """
+        Uses self.db_path (runtime DB) so the same file is used by all DB operations.
+        """
+        # Ensure we are using the same DB path created/opened by this object
+        # db_name = getattr(self, "db_path", runtime_db_path("estimation.db"))
+        #
+        # # Connect (or reuse existing connection)
+        # # Prefer using existing connection if present
+        # conn = getattr(self, "conn", None)
+        # if conn is None:
+        #     conn = sqlite3.connect(db_name)
+        #     c = conn.cursor()
+        # else:
+        #     c = self.cursor
+
+        # db_name = resourece_path("estimation.db")
+        # conn = sqlite3.connect(db_name)
+        # c = conn.cursor()
 
         #Deletes the whole quantity_estimation table
-        c.execute("DELETE FROM quantity_estimation")  # remove all rows
-        c.execute("DELETE FROM sqlite_sequence WHERE name='quantity_estimation'")  # reset autoincrement
-        conn.commit()
+        self.cursor.execute("DELETE FROM quantity_estimation")  # remove all rows
+        self.cursor.execute("DELETE FROM sqlite_sequence WHERE name='quantity_estimation'")  # reset autoincrement
+        self.conn.commit()
 
         #Deletes the whole quantity_estimation table
-        c.execute("DELETE FROM Rate_Analysis")  # remove all rows
-        c.execute("DELETE FROM sqlite_sequence WHERE name='Rate_Analysis'")  # reset autoincrement
-        conn.commit()
+        self.cursor.execute("DELETE FROM Rate_Analysis")  # remove all rows
+        self.cursor.execute("DELETE FROM sqlite_sequence WHERE name='Rate_Analysis'")  # reset autoincrement
+        self.conn.commit()
 
-        conn.close()
+        self.conn.commit()
+        self.conn.close()
 
 
     def delete_SubItemData_(self, item_number):
-        conn = sqlite3.connect("estimation.db")
-        c = conn.cursor()
+        self.conn = sqlite3.connect(databasePath)
+        self.cursor = self.conn.cursor()
+        """
+        Uses self.db_path (runtime DB) so the same file is used by all DB operations.
+        """
+        # Ensure we are using the same DB path created/opened by this object
+        # db_name = getattr(self, "db_path", runtime_db_path("estimation.db"))
+        #
+        # # Connect (or reuse existing connection)
+        # # Prefer using existing connection if present
+        # conn = getattr(self, "conn", None)
+        # if conn is None:
+        #     conn = sqlite3.connect(db_name)
+        #     c = conn.cursor()
+        # else:
+        #     c = self.cursor
 
-        c.execute("SELECT id FROM quantity_estimation WHERE item_number = ?", (item_number,))
-        existing = c.fetchone()
+        # db_name = resourece_path("estimation.db")
+        # conn = sqlite3.connect(db_name)
+        # c = conn.cursor()
+
+        self.cursor.execute("SELECT id FROM quantity_estimation WHERE item_number = ?", (item_number,))
+        existing = self.cursor.fetchone()
         # print("_____________________________________________________________")
         # print(existing, "existing", item_number)
 
         if existing:
-            c.execute("DELETE FROM quantity_estimation WHERE item_number = ?", (item_number,))
-            conn.commit()
+            self.cursor.execute("DELETE FROM quantity_estimation WHERE item_number = ?", (item_number,))
+            self.conn.commit()
 
-        c.execute("SELECT id FROM quantity_estimation WHERE item_number = ?", (item_number,))
-        existing = c.fetchone()
+        self.cursor.execute("SELECT id FROM quantity_estimation WHERE item_number = ?", (item_number,))
+        existing = self.cursor.fetchone()
         # print(existing, "existing")
-        conn.close()
+
+        self.conn.commit()
+        self.conn.close()
 
 
 
@@ -1417,13 +1565,17 @@ class GUIDatabase:
 
 
 class DB_Output:
-    def __init__(self, db_name="estimation.db"):
+    def __init__(self):
+
         self.db_GUI = GUIDatabase(init_db=False)
-        self.conn = sqlite3.connect(db_name)
+
+        self.conn = sqlite3.connect(databasePath)
         self.cursor = self.conn.cursor()
-        self.excel_name = "output.xlsx"
-        self.base_dir = os.path.dirname(os.path.abspath(self.excel_name))  # same folder as Excel file
-        self.pdf_path = os.path.join(self.base_dir, "CombinedBinder.pdf")  # full path
+
+        # self.excel_name = "output.xlsx"
+        self.Estimation_excelPath = Estimation_excelPath
+        # self.base_dir = os.path.dirname(os.path.abspath(self.excel_name))  # same folder as Excel file
+        self.pdf_path = Estimation_pdfPath
 
         self.sheetnames = ["Cover" , "Quantity Estimation", "Summary", "Abstract of Cost", "BOQ", "Rate Analysis" ]
         self.sheetnamesTITLEMerger_Range = {"Quantity Estimation": ["A", "I", "H", 9],"Summary": ["A", "E", "D", 9],"Abstract of Cost": ["A", "G", "F", 9],"BOQ": ["A", "G", "F", 9],"Cover": ["A", "I", "H", 9],"Rate Analysis": ["A", "H", "G", 7]}   #For every sheets they are ["start column", "end column", "FY writing column", Freezing row]
@@ -1658,8 +1810,8 @@ class DB_Output:
                 cell.value=f"F.Y.: {fiscalyear}"
 
 
-        wb.save(self.excel_name)
-        print(f"Data exported successfully to {self.excel_name}")
+        wb.save(Estimation_excelPath)
+        print(f"Data exported successfully to {Estimation_excelPath}")
         wb.close()
         return True
     def CoverPage_Writing(self):
@@ -1668,7 +1820,7 @@ class DB_Output:
 
         office_full, projectname, officeCode, projectlocation, completion_time, fiscalyear, budgetsubheadingno = record
 
-        wb = op.load_workbook(self.excel_name)  # 👈 change filename if needed
+        wb = op.load_workbook(Estimation_excelPath)  # 👈 change filename if needed
         if "Cover" in wb.sheetnames:
             ws = wb["Cover"]
         else:
@@ -1733,15 +1885,15 @@ class DB_Output:
 
 
 
-        wb.save(self.excel_name)
-        print(f"Data written successfully to Cover in {self.excel_name}")
+        wb.save(Estimation_excelPath)
+        print(f"Data written successfully to Cover in {Estimation_excelPath}")
         wb.close()
         return True
 
     def QuantityEstSheet_Writing(self):
         # Load the existing workbook
 
-        wb = op.load_workbook(self.excel_name)  # 👈 change filename if needed
+        wb = op.load_workbook(Estimation_excelPath)  # 👈 change filename if needed
         if "Quantity Estimation" in wb.sheetnames:
             ws = wb["Quantity Estimation"]
         else:
@@ -1800,8 +1952,8 @@ class DB_Output:
         QuantityEstimationWriting(segregated_dict, row)
 
 
-        wb.save(self.excel_name)
-        print(f"Data written successfully to Quantity Estimation in {self.excel_name}")
+        wb.save(Estimation_excelPath)
+        print(f"Data written successfully to Quantity Estimation in {Estimation_excelPath}")
         wb.close()
         # return   itemNo_List, trimmedData, categorizedData,bulkedData, segregated_dict
         return True
@@ -1811,7 +1963,7 @@ class DB_Output:
         QuantityTitle_index = 7  #Zero based indexing
         Unit_Bulkindex = self.qEstDBtitles.index("unit")
         Rate_Bulkindex= self.qEstDBtitles.index("rate")
-        wb = op.load_workbook(self.excel_name)  # 👈 change filename if needed
+        wb = op.load_workbook(Estimation_excelPath)  # 👈 change filename if needed
         if "Abstract of Cost" in wb.sheetnames:
             ws = wb["Abstract of Cost"]
         else:
@@ -1967,8 +2119,8 @@ class DB_Output:
                 cell = ws.cell(row=Rowline, column=col)
                 cell.border = self.bottom_border_thick
 
-        wb.save(self.excel_name)
-        print(f"Data written successfully to Abstract of Cost in {self.excel_name}")
+        wb.save(Estimation_excelPath)
+        print(f"Data written successfully to Abstract of Cost in {Estimation_excelPath}")
         wb.close()
         return True
 
@@ -1977,7 +2129,7 @@ class DB_Output:
         QuantityTitle_index = 7  #Zero based indexing
         Unit_Bulkindex = self.qEstDBtitles.index("unit")
         Rate_Bulkindex= self.qEstDBtitles.index("rate")
-        wb = op.load_workbook(self.excel_name)  # 👈 change filename if needed
+        wb = op.load_workbook(Estimation_excelPath)  # 👈 change filename if needed
         if "Summary" in wb.sheetnames:
             ws = wb["Summary"]
         else:
@@ -2065,8 +2217,8 @@ class DB_Output:
             row += 1  # move to next row after writing one line
 
 
-        wb.save(self.excel_name)
-        print(f"Data written successfully to Summary in {self.excel_name}")
+        wb.save(Estimation_excelPath)
+        print(f"Data written successfully to Summary in {Estimation_excelPath}")
         wb.close()
         return True
 
@@ -2075,7 +2227,7 @@ class DB_Output:
         QuantityTitle_index = 7  #Zero based indexing
         Unit_Bulkindex = self.qEstDBtitles.index("unit")
         Rate_Bulkindex= self.qEstDBtitles.index("rate")
-        wb = op.load_workbook(self.excel_name)  # 👈 change filename if needed
+        wb = op.load_workbook(Estimation_excelPath)  # 👈 change filename if needed
         if "BOQ" in wb.sheetnames:
             ws = wb["BOQ"]
         else:
@@ -2198,15 +2350,15 @@ class DB_Output:
 
                 cell.border = self.bottom_border_thick
 
-        wb.save(self.excel_name)
-        print(f"Data written successfully to BOQ in {self.excel_name}")
+        wb.save(Estimation_excelPath)
+        print(f"Data written successfully to BOQ in {Estimation_excelPath}")
         wb.close()
         return True
 
     def RateAnalysisDataWriting(self):
         itemNo_List, trimmedData, categorizedData, bulkedData, segregated_dict = self.ProcessedData_Extractor()
 
-        wb = op.load_workbook(self.excel_name)  # 👈 change filename if needed
+        wb = op.load_workbook(Estimation_excelPath)  # 👈 change filename if needed
         if "Rate Analysis" in wb.sheetnames:
             ws = wb["Rate Analysis"]
         else:
@@ -2342,12 +2494,12 @@ class DB_Output:
         for i, width in enumerate(column_widths, start=1):
             ws.column_dimensions[chr(64 + i)].width = width
 
-        wb.save(self.excel_name)
+        wb.save(Estimation_excelPath)
         print("Excel file created: RateAnalysis_Output.xlsx")
         return True
 
     def PostProcessingExcel(self):
-        wb = op.load_workbook(self.excel_name)  # 👈 change filename if needed
+        wb = op.load_workbook(Estimation_excelPath)  # 👈 change filename if needed
 
         for sheet in wb.sheetnames:
             ws = wb[sheet]
@@ -2383,7 +2535,7 @@ class DB_Output:
 
 
 
-        wb.save(self.excel_name)
+        wb.save(Estimation_excelPath)
         print("Excel file formatted successfully")
         return True
 
@@ -2391,12 +2543,12 @@ class DB_Output:
     def excel_to_pdf_merge(self):
 
         app = xw.App(visible=False)
-        wb = app.books.open(self.excel_name)
+        wb = app.books.open(Estimation_excelPath)
         temp_pdfs = []
 
         for sheet in wb.sheets:
             # ✅ enforce absolute path
-            pdf_file = os.path.join(self.base_dir, f"{sheet.name}.pdf")
+            pdf_file = os.path.join(databaseDir, f"{sheet.name}.pdf")
 
             # Export each sheet as PDF
             sheet.api.ExportAsFixedFormat(0, pdf_file)

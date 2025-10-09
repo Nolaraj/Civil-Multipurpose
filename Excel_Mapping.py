@@ -1,10 +1,11 @@
-import pandas as pd
-import openpyxl
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string
 from openpyxl.utils.cell import get_column_letter
-from openpyxl.styles import Font
 import npttf2utf
+from openpyxl.utils import range_boundaries
+import openpyxl
+from openpyxl.styles import Alignment, Font
+
 
 # File path and sheet name
 file_path = r"C:\Users\Acer\Desktop\Software_Input.xlsx"
@@ -315,7 +316,6 @@ def FirstInnerBounds_Data():
 
 # #Strep 10: Extracting the Original Rate, Overhead Value and Total Rate value
 def OriginalOverheadTotal_Rate():
-    from openpyxl.utils import range_boundaries
 
     # Define search strings
     search_strings = search_srtings
@@ -377,7 +377,6 @@ def OriginalOverheadTotal_Rate():
 
 # #Strep 11: Extracting the data from the second innter bound and replacing the values from the extracted_inner_table_values and search strings by None
 def SecondInnerBounds_Data():
-    from openpyxl.utils import range_boundaries
 
     # Define the search strings again
     search_strings = search_srtings
@@ -465,7 +464,6 @@ def TableNo():
 
 # #Step 14 : Extract data from the column A and only store the data that doesnot contains ru, numerical data, managal and arial type font data
 def Filtered_ColAData():
-    from openpyxl.styles import Font
 
     # Collect filtered values from Column A (excluding None, integers, Mangal/Arial fonts, and '?=')
     filtered_colA_values_per_table = []
@@ -686,11 +684,6 @@ print(IntegratedData)
 
 
 
-import openpyxl
-from openpyxl.styles import Alignment, Font
-
-import openpyxl
-from openpyxl.styles import Alignment, Font
 
 
 def transform_and_write_all_tables(IntegratedData, output_filename):

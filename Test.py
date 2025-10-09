@@ -1,17 +1,12 @@
 # main.py
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivymd.uix.scrollview import MDScrollView
-from kivy.uix.filechooser import FileChooserListView
-import pandas as pd
-from kivy.factory import Factory
 from kivy.core.text import LabelBase
-import InputData as ID
-import DatabaseManagement as DM
 from kivy.resources import resource_add_path
-from kivy.graphics import Color, RoundedRectangle
+from kivy.graphics import RoundedRectangle
 from kivymd.uix.snackbar import MDSnackbar
 from kivymd.uix.dialog import (    MDDialogButtonContainer,)
-from kivymd.uix.button import MDButton, MDButtonIcon, MDButtonText
+from kivymd.uix.button import MDButtonIcon, MDButtonText
 from math import prod
 from kivy.graphics import Color, Rectangle
 from kivy.properties import NumericProperty, BooleanProperty, ListProperty, ObjectProperty
@@ -26,7 +21,7 @@ from kivy.uix.button import Button
 from kivymd.uix.selectioncontrol import MDCheckbox
 from datetime import datetime
 from kivy.clock import Clock
-from kivymd.uix.dialog import MDDialog, MDDialogHeadlineText, MDDialogContentContainer
+from kivymd.uix.dialog import MDDialogHeadlineText, MDDialogContentContainer
 from kivymd.uix.progressindicator import MDCircularProgressIndicator
 from kivy.utils import get_color_from_hex
 import json, os
@@ -35,7 +30,6 @@ from kivy.metrics import dp
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.card import MDCard
 from kivymd.uix.button import MDButton
-from kivymd.uix.label import MDLabel
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
@@ -47,6 +41,18 @@ from kivymd.uix.button import MDExtendedFabButton, MDExtendedFabButtonIcon, MDEx
 from kivymd.uix.behaviors import HoverBehavior
 import webbrowser
 import sys
+import InputData as ID
+import DatabaseManagement as DM
+from kivymd.uix.label import MDLabel
+import re
+from kivy.clock import Clock
+import traceback
+from kivy.factory import Factory
+from kivy.app import App
+import os
+from kivy.uix.filechooser import FileChooserListView
+from kivymd.uix.label import MDLabel
+
 
 objects_cache = {
     "Estimation_Data": {
@@ -90,7 +96,6 @@ class ProgressManager:
             pos_hint={"center_x": 0.5}
         )
 
-        from kivymd.uix.label import MDLabel
         self.label = MDLabel(
             text=message,
             halign="center",
@@ -3113,8 +3118,7 @@ class GUIInspector:
 
         print_props(widget, level)
     def change_object_property(self, widget_object: Widget, property_name: str, new_value: str):
-        import re
-        from kivy.clock import Clock
+
 
         if not widget_object:
             print("Invalid widget object provided!")
@@ -3279,13 +3283,13 @@ class CivilEstimationApp(MDApp):
         # dropdown items
         font_dir = os.path.join(os.path.dirname(__file__), "fonts")
         resource_add_path(font_dir)
-        LabelBase.register(name='NepaliFont', fn_regular='fonts/Kalimati Regular.otf')
-        LabelBase.register(name='MultiLangFont', fn_regular='fonts/NotoSansDevanagari.ttf')
-        LabelBase.register(name='Preeti', fn_regular='fonts/Preeti Normal.otf')
-        LabelBase.register(name='Mangal', fn_regular='fonts/Mangal Regular.otf')
+        LabelBase.register(name='NepaliFont', fn_regular=resourece_path('fonts/Kalimati Regular.otf'))
+        LabelBase.register(name='MultiLangFont', fn_regular= resourece_path('fonts/NotoSansDevanagari.ttf'))
+        LabelBase.register(name='Preeti', fn_regular=resourece_path('fonts/Preeti Normal.otf'))
+        LabelBase.register(name='Mangal', fn_regular=resourece_path('fonts/Mangal Regular.otf'))
         LabelBase.register(            name="MultiLangFont",                   fn_regular=os.path.join(font_dir, "NotoSansDevanagari.ttf"),        )
-        LabelBase.register(name='NotoSansDevanagari_ExtraCondensed-SemiBold', fn_regular='fonts/NotoSansDevanagari_ExtraCondensed-SemiBold.ttf')
-        LabelBase.register(name='NotoSansDevanagari-Medium', fn_regular='fonts/NotoSansDevanagari-Medium.ttf')
+        LabelBase.register(name='NotoSansDevanagari_ExtraCondensed-SemiBold', fn_regular=resourece_path('fonts/NotoSansDevanagari_ExtraCondensed-SemiBold.ttf'))
+        LabelBase.register(name='NotoSansDevanagari-Medium', fn_regular=resourece_path('fonts/NotoSansDevanagari-Medium.ttf'))
 
 
 
@@ -3638,73 +3642,7 @@ class CivilEstimationApp(MDApp):
 
         content.bind(on_selection=on_selection)
         popup.open()
-    def import_excel(self):
-        content = BoxLayout(orientation='vertical', spacing=10)
-        filechooser = FileChooserListView(filters=['*.xlsx'])
-        content.add_widget(filechooser)
 
-        btn_box = BoxLayout(size_hint_y=None, height=40, spacing=10)
-        select_btn = Button(text="Import")
-        cancel_btn = Button(text="Cancel")
-        btn_box.add_widget(select_btn)
-        btn_box.add_widget(cancel_btn)
-        content.add_widget(btn_box)
-
-        popup = Popup(title="Import Excel File",
-                      content=content,
-                      size_hint=(0.9, 0.9))
-
-        def load_file(instance):
-            selected = filechooser.selection
-            if selected:
-                try:
-                    df = pd.read_excel(selected[0])
-                    print("Imported Data:\n", df)
-                    # You can now use this DataFrame as needed
-                    popup.dismiss()
-                except Exception as e:
-                    print("Error reading file:", e)
-
-        select_btn.bind(on_release=load_file)
-        cancel_btn.bind(on_release=lambda x: popup.dismiss())
-        popup.open()
-    def export_excel(self):
-        content = BoxLayout(orientation='vertical', spacing=10)
-        filechooser = FileChooserListView(path=os.getcwd())
-        content.add_widget(filechooser)
-
-        btn_box = BoxLayout(size_hint_y=None, height=40, spacing=10)
-        save_btn = Button(text="Export Here")
-        cancel_btn = Button(text="Cancel")
-        btn_box.add_widget(save_btn)
-        btn_box.add_widget(cancel_btn)
-        content.add_widget(btn_box)
-
-        popup = Popup(title="Export Excel File",
-                      content=content,
-                      size_hint=(0.9, 0.9))
-
-        def save_file(instance):
-            selected_path = filechooser.path
-            if selected_path:
-                try:
-                    # Example dummy data
-                    data = {
-                        "Item": ["Cement", "Sand", "Aggregate"],
-                        "Quantity": [50, 100, 75],
-                        "Unit": ["bags", "cft", "cft"]
-                    }
-                    df = pd.DataFrame(data)
-                    file_path = os.path.join(selected_path, "exported_data.xlsx")
-                    df.to_excel(file_path, index=False)
-                    print(f"Data exported to {file_path}")
-                    popup.dismiss()
-                except Exception as e:
-                    print("Error writing file:", e)
-
-        save_btn.bind(on_release=save_file)
-        cancel_btn.bind(on_release=lambda x: popup.dismiss())
-        popup.open()
     def search_mapped_data(self, category, keyword):
         results = []
         keyword = keyword.lower()
@@ -3892,7 +3830,6 @@ class CivilEstimationApp(MDApp):
 
         except Exception as e:
             print(f"Error in cache_forNewItem: {e}")
-            import traceback
             traceback.print_exc()
 
 
@@ -3947,7 +3884,6 @@ class CivilEstimationApp(MDApp):
             except Exception as e:
                 self.progress.dismiss()
                 print(f"Save error: {e}")
-                import traceback
                 traceback.print_exc()
                 self.toast(f"Error saving: {e}")
                 return None
@@ -3976,7 +3912,6 @@ class CivilEstimationApp(MDApp):
             except Exception as e:
                 self.progress.dismiss()
                 print(f"Load error: {e}")
-                import traceback
                 traceback.print_exc()
                 self.toast(f"Error loading: {e}")
                 return False
@@ -4120,7 +4055,6 @@ class CivilEstimationApp(MDApp):
             return item_data
         except Exception as e:
             print(f"Error collecting item: {e}")
-            import traceback
             traceback.print_exc()
             return None
 
@@ -4156,7 +4090,6 @@ class CivilEstimationApp(MDApp):
 
     def _restore_gui_state(self, state):
         """Restore complete GUI from logical data"""
-        from kivy.factory import Factory
 
         try:
             self.progress.update("Restoring general info...")
@@ -4211,7 +4144,6 @@ class CivilEstimationApp(MDApp):
         except Exception as e:
             self.progress.dismiss()
             print(f"Error in restore_gui_state: {e}")
-            import traceback
             traceback.print_exc()
             return False
 
@@ -4225,7 +4157,6 @@ class CivilEstimationApp(MDApp):
 
     def _restore_section(self, section_data, container, scroll_view):
         """Restore one EstimationPart section"""
-        from kivy.factory import Factory
 
         try:
             new_section = Factory.EstimationPart()
@@ -4248,12 +4179,10 @@ class CivilEstimationApp(MDApp):
 
         except Exception as e:
             print(f"Error restoring section: {e}")
-            import traceback
             traceback.print_exc()
 
     def _restore_item(self, item_data, item_container, section_widget):
         """Restore one ItemQuantity_Details with complete state"""
-        from kivy.factory import Factory
 
         try:
             new_item = Factory.ItemQuantity_Details()
@@ -4298,12 +4227,10 @@ class CivilEstimationApp(MDApp):
 
         except Exception as e:
             print(f"Error restoring item: {e}")
-            import traceback
             traceback.print_exc()
 
     def _restore_search_results(self, item_widget, search_results):
         """Restore search results for an item"""
-        from kivy.factory import Factory
 
         try:
             search_container = item_widget.ids.get('dynamic_searchResults_container')
@@ -4337,7 +4264,6 @@ class CivilEstimationApp(MDApp):
         def _find_and_click_apply( rv, item_key):
             """Run after RV has rendered to find the 'check' icon."""
             try:
-                from kivy.app import App
                 app = App.get_running_app()
                 inspector = GUIInspector(root_widget=app.root)
 
@@ -4404,18 +4330,15 @@ class CivilEstimationApp(MDApp):
 
                     except Exception as e:
                         print(f"Error processing item {item_key}: {e}")
-                        import traceback
                         traceback.print_exc()
                         continue
 
         except Exception as e:
             print(f"Error in _auto_apply_single_search_results: {e}")
-            import traceback
             traceback.print_exc()("Second Inner table", {}).get("Unit Rate", [0])[0]
 
     def _restore_subitem(self, subitem_data, dims_container, item_widget, item_data):
         """Restore one SubItemRow with all field values"""
-        from kivy.factory import Factory
 
         try:
             new_subitem = Factory.SubItemRow()
@@ -4477,14 +4400,12 @@ class CivilEstimationApp(MDApp):
 
                 except Exception as e:
                     print(f"Error setting subitem values: {e}")
-                    import traceback
                     traceback.print_exc()
 
             Clock.schedule_once(set_subitem_values, 0.05)
 
         except Exception as e:
             print(f"Error restoring subitem: {e}")
-            import traceback
             traceback.print_exc()
 
     def _apply_saved_rate(self, item_no, subitem_widget):
@@ -4595,8 +4516,7 @@ class CivilEstimationApp(MDApp):
 
     def open_load_dialog(self):
         """Open dialog for loading GUI state with file browser"""
-        import os
-        from kivy.uix.filechooser import FileChooserListView
+
 
         content = BoxLayout(orientation="vertical", padding=10, spacing=10)
 
@@ -4609,7 +4529,6 @@ class CivilEstimationApp(MDApp):
         content.add_widget(filechooser)
 
         # Selected file label
-        from kivymd.uix.label import MDLabel
         selected_label = MDLabel(
             text="No file selected",
             size_hint_y=None,

@@ -1,6 +1,7 @@
-from googletrans import Translator
 import pprint
-translator = Translator()
+# from googletrans import Translator
+translator = pprint       #Translator()                           #For translator please uncomment the line above and make it possible, it is commented as it isnot supproted during the exe creation
+import copy
 
 
 def DataMapped():
@@ -26,7 +27,6 @@ def translate_text(text):
 
 def translate_mapped_data(data):
     # Deep copy to avoid modifying original dict
-    import copy
     translated_data = copy.deepcopy(data)
 
     for key, section in translated_data.items():
