@@ -1,0 +1,22 @@
+<RVItem@BoxLayout>:
+    orientation: "horizontal"
+    size_hint_y: None
+    height: dp(48)
+    spacing: dp(10)
+    padding: dp(10)
+
+    MDLabel:
+        id: item_label
+        text: root.text
+        halign: "left"
+        valign: "middle"
+        theme_text_color: "Primary"
+
+<CustomRecycleView@RecycleView>:
+    viewclass: "RVItem"
+    RecycleBoxLayout:
+        default_size: None, dp(48)
+        default_size_hint: 1, None
+        size_hint_y: None
+        height: self.minimum_height
+        orientation: "vertical"

@@ -14,6 +14,8 @@ import xlwings as xw
 from PyPDF2 import PdfMerger
 import sys
 import InputData
+import shutil
+
 
 databaseDir = os.path.join(os.path.dirname(__file__), "_cache")
 if not os.path.exists(databaseDir):
@@ -48,8 +50,6 @@ def resource_path(rel_path: str) -> str:
         base_path = os.path.dirname(os.path.abspath(__file__))
 
     return os.path.join(base_path, rel_path)
-
-
 def get_user_data_dir(app_name: str = "Civil_Multipurpose_Software") -> str:
     """
     Return a writable user data directory for persistent runtime files.
@@ -67,8 +67,6 @@ def get_user_data_dir(app_name: str = "Civil_Multipurpose_Software") -> str:
     path = os.path.join(base, app_name)
     os.makedirs(path, exist_ok=True)
     return path
-
-
 def runtime_db_path(db_filename: str = "estimation.db", app_name: str = "Civil_Multipurpose_Software") -> str:
     """
     Return a safe, writable path for the runtime DB (do not use sys._MEIPASS).
@@ -76,8 +74,6 @@ def runtime_db_path(db_filename: str = "estimation.db", app_name: str = "Civil_M
     """
     user_dir = get_user_data_dir(app_name)
     return os.path.join(user_dir, db_filename)
-
-
 # Backwards compatibility: many places in your code call resourece_path (typo).
 # Provide alias so existing calls continue to work when they expect to read packaged resource files.
 def resourece_path(rel_path: str) -> str:
@@ -1031,8 +1027,8 @@ def DUDBC_Extractor(searchmode, searchvalue, resourcetype = ""):
                 ### printsample = 187: {'Title_Section': {'Title': ['नयाँ सर्फेसमा ह्वाईटवास दुईकोट गर्ने काम (सिलिंगमा)'], 'Note': ['दर विश्लेषणको लागि १०० व.मी. लिइएको']}, 'References': {'Table No': [192], 'Reference': ['J 1']}, 'First Inner table': {'Title': [], 'Manpower': [['श्रमिक', 'क) सिपालु', 1.875, 'जवान', 1190.0, 2231.25, None], ['श्रमिक', 'ख) ज्यामी', 1.375, 'जवान', 863.0, 1186.6200000000001, 3417.87]], 'Materials': [['निर्माण सामग्री', 'सेतो चुना', 22.0, 'के.जी.', 21.25, 467.5, None], ['निर्माण सामग्री', 'गम आदि', 0.88, 'के.जी.', 290.7, 255.81, 723.31]], 'Machines': [], 'Others': []}, 'Second Inner table': {'Original Rate': [4141.18], 'Overhead': [621.17], 'Total Rate': [4762.35], 'Unit Rate': [47.62], 'Others': ['दर प्रति व.मी.को', 4762.35, 100]}}
 
 
-            with open('all_tables_data.json', 'w', encoding='utf-8') as f:
-                json.dump(all_tables_data, f, indent=2, ensure_ascii=False)
+            # with open('all_tables_data.json', 'w', encoding='utf-8') as f:
+            #     json.dump(all_tables_data, f, indent=2, ensure_ascii=False)
         return all_tables_data
 
 
@@ -1559,16 +1555,49 @@ class GUIDatabase:
         self.conn.commit()
         self.conn.close()
 
+    def ReviseDatabase_CreateEntryExcel(self, item_number=None, norms_ref=None):
+        db_file = "DUDBC_RateAnalysis.db"
+        excel_path = "RateAnalysis_Export.xlsx"
+        try:
+            # Connect to the SQLite database
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
 
+            # Define the tables to extract
+            tables = ["Manpower", "Machines", "Materials"]
 
+            # Create a new Excel writer
+            with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
+                for table in tables:
+                    try:
+                        # Fetch data from each table
+                        query = f"SELECT level_type, unit, quantity, rate_per_unit FROM {table}"
+                        df = pd.read_sql_query(query, conn)
 
+                        # Drop duplicate level_type values, keeping the first occurrence
+                        df = df.drop_duplicates(subset=["level_type"])
+
+                        # Write to Excel sheet (one sheet per table)
+                        df.to_excel(writer, sheet_name=table, index=False)
+
+                        print(f"✅ Extracted and written table: {table}")
+
+                    except Exception as e:
+                        print(f"⚠️ Error processing table {table}: {e}")
+
+            print(f"\n📘 Data successfully exported to: {excel_path}")
+
+        except Exception as e:
+            print(f"❌ Database connection or export failed: {e}")
+
+        finally:
+            conn.close()
 
 
 class DB_Output:
     def __init__(self):
 
         self.db_GUI = GUIDatabase(init_db=False)
-
         self.conn = sqlite3.connect(databasePath)
         self.cursor = self.conn.cursor()
 
@@ -1589,7 +1618,6 @@ class DB_Output:
 
         #Styles
         self.left_align = Alignment(horizontal="left", vertical="center", wrap_text=True)
-
         self.right_align = Alignment(horizontal="right", vertical="center", wrap_text=True)
         self.center_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
         self.grey_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
@@ -2541,7 +2569,6 @@ class DB_Output:
 
 
     def excel_to_pdf_merge(self):
-
         app = xw.App(visible=False)
         wb = app.books.open(Estimation_excelPath)
         temp_pdfs = []
@@ -2573,6 +2600,61 @@ class DB_Output:
     def PrintPDF(self):
         os.startfile(self.pdf_path, "print")         #Ensure to set the default printer from settings(set windows chooes = false, and set the printer as default)
         return True
+
+    def DispatchOutputs_toDIR(self, outputDIR):
+        pdfPath = self.pdf_path
+        """
+        Safely copies Estimation Excel and PDF files to the output directory.
+        - Copies both if available.
+        - Copies only available ones if one is missing.
+        - Returns True if successful, or an error message string on failure.
+        """
+        try:
+            # Validate output directory
+            if not outputDIR or not isinstance(outputDIR, str):
+                return "Invalid output directory path."
+
+            # Ensure destination directory exists
+            os.makedirs(outputDIR, exist_ok=True)
+
+            # Validate and collect available files
+            files_to_copy = []
+            if Estimation_excelPath and os.path.exists(Estimation_excelPath):
+                files_to_copy.append(Estimation_excelPath)
+            if pdfPath and os.path.exists(pdfPath):
+                files_to_copy.append(pdfPath)
+
+            # If no valid files found, return error
+            if not files_to_copy:
+                return "No valid files found to copy."
+
+            # Loop and safely copy each file
+            for file_path in files_to_copy:
+                filename = os.path.basename(file_path)
+                destination = os.path.join(outputDIR, filename)
+
+                # Avoid overwriting existing file
+                if os.path.exists(destination):
+                    base, ext = os.path.splitext(filename)
+                    counter = 1
+                    while os.path.exists(os.path.join(outputDIR, f"{base}_{counter}{ext}")):
+                        counter += 1
+                    destination = os.path.join(outputDIR, f"{base}_{counter}{ext}")
+
+                # Perform safe copy with metadata
+                shutil.copy2(file_path, destination)
+
+            return True  # ✅ success
+
+        except PermissionError:
+            return "Permission denied: Unable to access files or destination."
+        except FileNotFoundError as e:
+            return f"File not found: {e.filename}"
+        except shutil.SameFileError:
+            return "Source and destination refer to the same file."
+        except Exception as e:
+            return f"Unexpected error: {str(e)}"
+
 
 
 # db_out = DB_Output()

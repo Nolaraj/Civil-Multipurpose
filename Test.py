@@ -52,14 +52,29 @@ from kivy.app import App
 import os
 from kivy.uix.filechooser import FileChooserListView
 from kivymd.uix.label import MDLabel
-
-
+from kivy.uix.image import Image
+from kivy.graphics import Color, Line
+from kivy.utils import platform
+from tkinter import filedialog, Tk
 objects_cache = {
     "Estimation_Data": {
         "Estimation_Sections": {}  # outer list of sections
     }
 }
 # Global cache for all dynamically created estimation GUI objects
+class SplitterLine(Widget):
+    def __init__(self, color=(0.6, 0.6, 0.6, 1), **kwargs):
+        super().__init__(**kwargs)
+        self.size_hint_y = None
+        self.height = dp(1)
+        with self.canvas:
+            Color(*color)
+            self.rect = Rectangle(pos=self.pos, size=self.size)
+        self.bind(pos=self._update_rect, size=self._update_rect)
+
+    def _update_rect(self, *args):
+        self.rect.pos = self.pos
+        self.rect.size = self.size
 def resourece_path(rel_path):
     try:
         base_path = sys._MEIPASS
@@ -238,6 +253,44 @@ class MainScreen(Screen):
             row.add_widget(widget)
             return row
 
+        def browse_file(instance):
+            """Opens a native Windows folder chooser and updates the text field."""
+            try:
+                # Hide the root Tkinter window
+                root = Tk()
+                root.withdraw()
+
+                # Ask for folder (native Windows dialog)
+                folder_path = filedialog.askdirectory(
+                    title="Select Export Folder",
+                    mustexist=True
+                )
+
+                if folder_path:
+                    export_path_input.text = folder_path  # ✅ Update your Kivy text field
+                else:
+                    print("No folder selected.")
+
+            except Exception as e:
+                print(f"Error selecting folder: {e}")
+###############################
+        # ✅ Browse Directory Row
+
+
+        export_path_box = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(40), spacing=10)
+        export_path_input = MDTextField(hint_text="Select export file path", mode="outlined", size_hint_y=None,
+                                        height=dp(35))
+        browse_button = MDButton(
+            style="filled",  # or "outlined", "elevated", "tonal"
+            on_release=browse_file,
+            size_hint=(None, None),
+            size=(dp(100), dp(35))
+        )
+        browse_button.add_widget(MDButtonText(text="Browse"))
+        export_path_box.add_widget(export_path_input)
+        export_path_box.add_widget(browse_button)
+
+####################
         # Input fields
         contingency_input = MDTextField(hint_text="Enter contingency value", mode="outlined",     size_hint_y= None, height = dp(35), text="4")
         vat_input = MDTextField(hint_text="Enter VAT percentage", mode="outlined",     size_hint_y= None, height = dp(35), text="13")
@@ -271,6 +324,7 @@ class MainScreen(Screen):
         grid.add_widget(create_row("VAT (on %):", vat_input))
         grid.add_widget(create_row("Physical Contingency (on %):", physical_input))
         grid.add_widget(create_row("Price Adjustment (on %):", price_adj_input))
+        grid.add_widget(create_row("Export File Path", export_path_box))
         grid.add_widget(pdf_box)
         grid.add_widget(print_box)
 
@@ -301,6 +355,7 @@ class MainScreen(Screen):
                 "price_adjustment": price_adj_input.text,
                 "pdf": pdf_checkbox.active,
                 "print": print_checkbox.active,
+                "output_dir": export_path_input.text,
             }
 
 
@@ -345,11 +400,16 @@ class MainScreen(Screen):
 
                 if valuesDict["pdf"]:
                     excelpdtoutret = db_out.excel_to_pdf_merge()
-                    app.toast(toasttextconfiner(postproret, "Excel to PDF format"))
+                    app.toast(toasttextconfiner(excelpdtoutret, "Excel to PDF format"))
 
                 if valuesDict["print"]:
                     printpdfret = db_out.PrintPDF()
-                    app.toast(toasttextconfiner(postproret, "Printer"))
+                    app.toast(toasttextconfiner(printpdfret, "Printer"))
+
+                if valuesDict["output_dir"]:
+                    printpdfret = db_out.DispatchOutputs_toDIR(valuesDict["output_dir"])
+                    app.toast(toasttextconfiner(printpdfret, "Printer"))
+
 
                 popup.dismiss()
             except Exception as e:
@@ -3333,49 +3393,210 @@ class CivilEstimationApp(MDApp):
             welcome_box.parent.remove_widget(welcome_box)
         # MDStackLayout automatically adjusts its size
     def open_help_dialog(self):
-        # dialog_content = Factory.HelpDialog()
-        layout = BoxLayout(orientation='vertical', spacing=20, padding=20, size_hint_y=None)
-        layout.bind(minimum_height=layout.setter('height'))
+        # Root vertical container
+        rootbox = MDBoxLayout(
+            orientation="vertical",
+            spacing=dp(0),
+            size_hint_y=None,
+            adaptive_height=True,
+            pos_hint={"center_x": 0.5, "center_y": 0.5},
+        )
 
-        # Card
-        card = MDCard(
-            style="elevated",
+        # Developer Info Section
+        box1 = MDBoxLayout(
+            orientation="vertical",
+            spacing=dp(2),
+            size_hint_y=None,
+            adaptive_height=True,
             pos_hint={"center_x": 0.5},
-            padding="4dp",
+        )
+
+        # Developer Label
+        # developer_label = Label(
+        #     text="[b][u]About Developer[/u][/b]",
+        #     markup=True,
+        #     size_hint_y=None,
+        #     height=dp(30),
+        #     halign="center",
+        #     valign="middle",
+        # )
+        # developer_label.bind(size=lambda lbl, _: setattr(lbl, "text_size", lbl.size))
+
+        # Developer Image
+        developer_image = Image(
+            source="assets/developer.jpg",
             size_hint=(None, None),
-            size=("240dp", "100dp"),
-            theme_shadow_color="Custom",
-            shadow_color="green",
-            theme_bg_color="Custom",
-            md_bg_color="white",
-            md_bg_color_disabled="grey",
-            theme_shadow_offset="Custom",
-            shadow_offset=(1, -2),
-            theme_shadow_softness="Custom",
-            shadow_softness=1,
-            theme_elevation_level="Custom",
-            elevation_level=2,
-        )
-
-
-        # Add FAB
-        fabbutton1 = HoverFab(
+            size=(dp(160), dp(160)),  # enlarged from 100x100 to 150x150
+            allow_stretch=True,
+            keep_ratio=True,
             pos_hint={"center_x": 0.5},
-            elevation_level=5,
-            fab_state="collapse"
         )
 
-        fabbutton1.add_widget(MDExtendedFabButtonIcon(icon="facebook"))
-        fabbutton1.add_widget(MDExtendedFabButtonText(text="Nolaraj Poudel"))
-        fabbutton1.bind(on_release=lambda instance: self.open_link("https://www.facebook.com/nolaraj/"))
+        # Developer Name
+        developer_name = Label(
+            text="[b]Nolaraj Poudel[/b]",
+            markup=True,
+            size_hint_y=None,
+            height=dp(25),
+            halign="center",
+            valign="middle",
+        )
+        developer_name.bind(size=lambda lbl, _: setattr(lbl, "text_size", lbl.size))
 
-        scroll = ScrollView(size_hint=(1, None), size=(400, 300))
+        # box1.add_widget(developer_label)
+        box1.add_widget(developer_image)
+        # box1.add_widget(developer_name)
 
-        layout.add_widget(card)
-        card.add_widget(fabbutton1)
+        # Function to create small FABs
+        def social_fab(icon_name, text, link):
+            fab = HoverFab(
+                style= "small",
+                pos_hint={"center_x": 0.5, "y": 0} ,
+                elevation_level=1,
+                fab_state="collapse",
+                size_hint=(None, None),
+                height=dp(20),  # small height
+                width=dp(80),  # smaller width
+            )
+            # Make it unfilled / flat
+            fab.md_bg_color = (0, 0, 0, 0)  # transparent background
+            fab.line_color = app.theme_cls.primaryColor
+            fab.icon_color = app.theme_cls.primaryColor
+            fab.add_widget(MDExtendedFabButtonIcon(icon=icon_name))#, size= ("50dp", "30dp")))
+            fab.add_widget(MDExtendedFabButtonText(text=text, font_size=dp(12)))
+            fab.bind(on_release=lambda i: self.open_link(link))
+            return fab
+
+        # Create small FABs
+        fab_facebook = social_fab("facebook", "Facebook", "https://www.facebook.com/nolaraj/")
+        fab_linkedin = social_fab("linkedin", "LinkedIn", "https://www.linkedin.com/in/nolaraj-poudel/")
+        fab_github = social_fab("github", "GitHub", "https://github.com/Nolaraj")
+        fab_website = social_fab("spider-web", "Website", "https://www.nolaraj.com.np/")
 
 
-        scroll.add_widget(layout)
+        # Horizontal box for FABs
+        fabsbox = MDBoxLayout(
+            orientation="horizontal",
+            spacing=dp(10),
+            size_hint=(None, None),
+            # height=dp(26),
+            # width=dp(360),  # Adjust depending on how many buttons you have
+            adaptive_width=True,  # ✅ shrink to fit its contents
+        )
+        fabsbox.pos_hint = {"center_x": 0.5}
+        fabsbox.add_widget(fab_facebook)
+        fabsbox.add_widget(fab_linkedin)
+        fabsbox.add_widget(fab_github)
+        fabsbox.add_widget(fab_website)
+
+
+        #_################__________________
+        # Scientific Publications Section
+        def link_label(text, link):
+            lbl = Label(
+                text=f"[ref=link][color=0000ff][i]{text}[/i][/color][/ref]",
+                markup=True,
+                size_hint=(None, None),
+                height=dp(25),
+                width=dp(120),  # adjust as needed
+                halign="center",
+                valign="middle",
+            )
+            lbl.bind(size=lambda lbl, _: setattr(lbl, "text_size", lbl.size))
+            # Open link on click
+            lbl.bind(on_ref_press=lambda instance, ref: webbrowser.open(link))
+            return lbl
+
+        # Label for section title
+        pub_label = Label(
+            text="[b][u]Scientific Publications[/u][/b]",
+            markup=True,
+            size_hint_y=None,
+            height=dp(25),
+            halign="center",
+            valign="middle",
+        )
+        pub_label.bind(size=lambda lbl, _: setattr(lbl, "text_size", lbl.size))
+
+        # Horizontal box for links
+        pubs_box = BoxLayout(
+            orientation="horizontal",
+            spacing=dp(15),
+            size_hint=(None, None),
+            height=dp(30),
+            width=dp(400),  # adjust to fit all links
+            pos_hint={"center_x": 0.5},
+        )
+
+        # Create hyperlinked labels
+        lbl_sciencedirect = link_label("SciDirect", "https://www.scopus.com/authid/detail.uri?authorId=59046473100")
+        lbl_researchgate = link_label("ResearchGate", "https://www.researchgate.net/profile/Nolaraj-Poudel")
+        lbl_google = link_label("Google Scholar", "https://scholar.google.com/citations?user=pbUvxYUAAAAJ")
+
+        # Add labels to horizontal box
+        pubs_box.add_widget(lbl_sciencedirect)
+        pubs_box.add_widget(lbl_researchgate)
+        pubs_box.add_widget(lbl_google)
+
+
+        ##############Read Manual sectin
+        manual_label ="Read Manual"
+        manual_lbl = Label(
+            text=f"[ref=link][color=000000][b]{manual_label}[/b][/color][/ref]",
+            markup=True,
+            size_hint=(None, None),
+            height=dp(25),
+            width=dp(120),  # adjust as needed
+            halign="center",
+            valign="middle",
+            pos_hint={"center_x": 0.5},
+
+        )
+
+        def open_link(instance, ref):
+            try:
+                    # Construct path to PDF
+                    assets_dir = os.path.join(os.path.dirname(__file__), "assets")
+
+                    pdf_path = os.path.join(assets_dir, "CivilMultipurposeManual.pdf")
+                    if not os.path.exists(pdf_path):
+                        raise FileNotFoundError(f"Manual not found at {pdf_path}")
+
+                    # Open PDF depending on platform
+                    if platform == "win":
+                        os.startfile(pdf_path)
+                    elif platform == "macosx":
+                        os.system(f"open '{pdf_path}'")
+                    else:  # Linux or other
+                        os.system(f"xdg-open '{pdf_path}'")
+
+            except Exception as e:
+                # Show error popup
+                popup = Popup(
+                    title="Error",
+                    content=Label(text=f"Failed to open link/manual:\n{e}"),
+                    size_hint=(0.6, 0.3)
+                )
+                popup.open()
+
+        manual_lbl.bind(on_ref_press=open_link)
+        # --------------------------
+
+
+        # Combine all in rootbox
+
+        # Combine all
+        box1.add_widget(fabsbox)
+        rootbox.add_widget(box1)
+
+        rootbox.add_widget(pub_label)
+        rootbox.add_widget(pubs_box)
+        splitter = SplitterLine(color=(0.4, 0.7, 0.95, 1))
+        rootbox.add_widget(splitter)
+        rootbox.add_widget(manual_lbl)
+
+        scroll = ScrollView(size_hint=(1, None), size=("400dp", "300dp"))
+        scroll.add_widget(rootbox)
 
         cancel_btn = MDButton(
             style="outlined",
@@ -3389,7 +3610,7 @@ class CivilEstimationApp(MDApp):
 
         #cancel_btn.add_widget(MDButtonText(text="CANCEL"))
         self.dialog = MDDialog(
-            MDDialogHeadlineText(text="About me"),
+            MDDialogHeadlineText(text="Civil Multipupose_v1.0.0"),
             MDDialogContentContainer(scroll),
             MDDialogButtonContainer(
                 cancel_btn,

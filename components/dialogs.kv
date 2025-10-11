@@ -1,0 +1,78 @@
+#<ImportDialogContent@BoxLayout>:
+#    orientation: "vertical"
+#    spacing: dp(10)
+#    padding: dp(10)
+#    MDTextField:
+#        id: import_path
+#        hint_text: "Enter file path"
+#    MDRaisedButton:
+#        text: "Import"
+#        on_release: app.import_data(import_path.text)
+#
+#<ExportDialogContent@BoxLayout>:
+#    orientation: "vertical"
+#    spacing: dp(10)
+#    padding: dp(10)
+#    MDTextField:
+#        id: export_path
+#        hint_text: "Enter file path"
+#    MDRaisedButton:
+#        text: "Export"
+#        on_release: app.export_data(export_path.text)
+#
+#<HelpDialogContent@ScrollView>:
+#    MDLabel:
+#        text: "This is a civil estimation software. Use the menu to navigate across login, design, and reporting features."
+#        size_hint_y: None
+#        height: self.texture_size[1]
+#        padding: dp(10), dp(10)
+#        halign: "left"
+#
+#<ImportDialog@MDDialog>:
+#    title: "Import Data"
+#    type: "custom"
+#    size_hint: 0.8, None
+#    height: dp(250)
+#    content_cls: ImportDialogContent()
+#
+#<ExportDialog@MDDialog>:
+#    title: "Export Data"
+#    type: "custom"
+#    size_hint: 0.8, None
+#    height: dp(250)
+#    content_cls: ExportDialogContent()
+#
+#<HelpDialog@MDDialog>:
+#    title: "Help & Info"
+#    type: "custom"
+#    size_hint: 0.85, None
+#    height: dp(300)
+#    content_cls: HelpDialogContent()
+
+<MDDropdownMenu@BoxLayout>:
+    MDList:
+        OneLineListItem:
+            text: "New"
+            on_release:
+                app.menu_dropdown.dismiss()
+                app.menu_action("New")
+        OneLineListItem:
+            text: "Edit"
+            on_release:
+                app.menu_dropdown.dismiss()
+                app.menu_action("Edit")
+        OneLineListItem:
+            text: "Design"
+            on_release:
+                app.menu_dropdown.dismiss()
+                app.menu_action("Design")
+        OneLineListItem:
+            text: "Completion Sheet"
+            on_release:
+                app.menu_dropdown.dismiss()
+                app.menu_action("Completion")
+        OneLineListItem:
+            text: "Exit"
+            on_release:
+                app.menu_dropdown.dismiss()
+                app.menu_action("Exit")

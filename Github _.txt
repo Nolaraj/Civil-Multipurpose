@@ -1,0 +1,16 @@
+🔧 One-Time Setup (if not done before)
+
+Open your project in PyCharm. Go to File → Settings → Version Control → Git
+ 	Check if the path to git.exe (Windows) or git (Linux/Mac) is set correctly.
+ 	If you installed Git for Windows (Git Bash), the executable is usually at:
+ 	C:\Program Files\Git\bin\git.exe
+ 	or C:\Program Files\Git\cmd\git.exe
+ 	👉 In PyCharm, you browse and select one of these.
+Click Test → It should say Git executed successfully.
+Click on Version Control on leftmost bottom icon in PyCharm > Click Create Git repository > A popup will appear → select your project root folder (Civil_Multipurpose Software). Click OK.
+Go to top menu → Git (you already have this now). In the dropdown, look for Manage Remotes… (or sometimes “Repository → Remotes” depending on PyCharm version).
+Click the + button → enter: Name: origin  URL: https://github.com/YOUR_USERNAME/Civil-Multipurpose.git Press OK.
+✅ After Remote is Set
+Commit changes: Click the green tick icon (top-right toolbar) or use shortcut Ctrl+K. Write commit message → Commit.
+Push to GitHub: Click the blue up-arrow icon (top-right) or use shortcut Ctrl+Shift+K. Select origin/master (or origin/main depending on GitHub). → Push.
+Your code will now appear in your GitHub repo. 🚀
